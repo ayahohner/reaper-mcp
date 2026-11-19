@@ -24,15 +24,22 @@ def set_param_normalized(track, fx_index: int, param_index: int, *, value: float
     return track.fxs[fx_index].params[param_index]
 
 
-def add_fx(*, track_index: int, fx_name: str) -> dict:
+def add_fx(*, track_index: int, fx_name: str, position: int | None = None) -> dict:
     """
     Add an FX plugin to a track. Works for both instruments (VSTi) and effects (VST/AU).
     Use the exact plugin name as shown in REAPER's FX browser.
     Built-in Cockos plugins: ReaEQ, ReaComp, ReaDelay, ReaVerb, ReaLimit, ReaSynth,
     ReaSamplOmatic5000, ReaTune, ReaGate, ReaFIR, ReaXcomp.
+    track_index -1 is the master track. position: insert at this chain index
+    (0 = first) instead of the end, e.g. an EQ before an existing limiter.
     """
-    track = get_project().tracks[track_index]
-    fx = add_plugin(track, fx_name)
+    project = get_project()
+    track = project.master_track if track_index == -1 else project.tracks[track_index]
+    if position is not None:
+        index = RPR.TrackFX_AddByName(track.id, fx_name, False, -1000 - position)
+        fx = track.fxs[index] if isinstance(index, int) and index >= 0 else None
+    else:
+        fx = add_plugin(track, fx_name)
     if fx is None:
         return {"success": False, "error": f"Plugin not found: '{fx_name}'"}
     return {

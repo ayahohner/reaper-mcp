@@ -1,11 +1,23 @@
 {
   "add_fx": {
-    "description": "Add an FX plugin to a track. Works for both instruments (VSTi) and effects (VST/AU).\nUse the exact plugin name as shown in REAPER's FX browser.\nBuilt-in Cockos plugins: ReaEQ, ReaComp, ReaDelay, ReaVerb, ReaLimit, ReaSynth,\nReaSamplOmatic5000, ReaTune, ReaGate, ReaFIR, ReaXcomp.",
+    "description": "Add an FX plugin to a track. Works for both instruments (VSTi) and effects (VST/AU).\nUse the exact plugin name as shown in REAPER's FX browser.\nBuilt-in Cockos plugins: ReaEQ, ReaComp, ReaDelay, ReaVerb, ReaLimit, ReaSynth,\nReaSamplOmatic5000, ReaTune, ReaGate, ReaFIR, ReaXcomp.\ntrack_index -1 is the master track. position: insert at this chain index\n(0 = first) instead of the end, e.g. an EQ before an existing limiter.",
     "input_schema": {
       "properties": {
         "fx_name": {
           "title": "Fx Name",
           "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
         },
         "track_index": {
           "title": "Track Index",
@@ -910,6 +922,49 @@
       "type": "object"
     }
   },
+  "level_tracks": {
+    "description": "Gain staging: set each track's fader so the track, soloed in place over\nstart..end (its sends and ducking included, master FX bypassed), measures\nits target integrated LUFS. targets: {track index: LUFS}, e.g. a kick at -20\nand the rest placed around it, so the mix sums quietly and the master has headroom.\nReturns per track [measured before, fader dB after]; faders stop at +12 dB.",
+    "input_schema": {
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "targets": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Targets",
+          "type": "object"
+        }
+      },
+      "required": [
+        "targets"
+      ],
+      "title": "level_tracksArguments",
+      "type": "object"
+    }
+  },
   "list_master_fx": {
     "description": "List all FX plugins on the master track.",
     "input_schema": {
@@ -1387,7 +1442,7 @@
     }
   },
   "set_fx": {
-    "description": "Set several parameters of one FX at once. params: {name or index: value};\nnames match case-insensitively, whole or as a unique substring. A number is\nin the plugin's own units (a JSFX slider's value, a VST's 0-1); a string is\nwhat the plugin displays (\"-1\" or \"-1 dB\" for a ceiling, \"250 Hz\"), found by search.\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\ntrack_index -1 is the master track.\nReturns each parameter's value as the plugin displays it.",
+    "description": "Set several parameters of one FX at once. params: {name or index: value};\nnames match case-insensitively, whole or as a unique substring. A number is\nin the plugin's own units (a JSFX slider's value, a VST's 0-1); a string is\nwhat the plugin displays (\"-1\" or \"-1 dB\" for a ceiling, \"250 Hz\"), found by search.\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\ntrack_index -1 is the master track. fx_index: the FX's index or name (\"channel\").\nReturns each parameter's value as the plugin displays it.",
     "input_schema": {
       "properties": {
         "config": {
@@ -1406,8 +1461,15 @@
           "title": "Config"
         },
         "fx_index": {
-          "title": "Fx Index",
-          "type": "integer"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Fx Index"
         },
         "params": {
           "anyOf": [
@@ -1720,7 +1782,7 @@
     }
   },
   "write_envelope": {
-    "description": "Write automation as \"BEAT:VALUE[:SHAPE]\" points (beats from the project start),\nseparated by spaces. target: volume (VALUE in dB), pan (-1 left .. 1 right), or fx\n(fx_index + param name/index; VALUE in the plugin's units, as set_fx takes).\nSHAPE: linear (default), square, slow, fast_start, fast_end, bezier.\nclear: first delete existing points between the first and last beat written.",
+    "description": "Write automation as \"BEAT:VALUE[:SHAPE]\" points (beats from the project start),\nseparated by spaces. target: volume (VALUE in dB), pan (-1 left .. 1 right), or fx\n(fx_index or FX name + param name/index; VALUE in the plugin's units).\nSHAPE: linear (default), square, slow, fast_start, fast_end, bezier.\nclear: first delete existing points between the first and last beat written.",
     "input_schema": {
       "properties": {
         "clear": {
@@ -1732,6 +1794,9 @@
           "anyOf": [
             {
               "type": "integer"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"

@@ -177,6 +177,29 @@ def clear_items(*, tracks: list[int] | None = None, start_beat: float = 0.0,
     return result
 
 
+def fx_index_of(names: list[str], fx: int | str) -> int:
+    """An FX's chain index from its index or its (renamed) name: case-insensitive,
+    the whole name first, else a unique substring ("channel", "duck")."""
+    if isinstance(fx, int) or (isinstance(fx, str) and fx.lstrip("-").isdigit()):
+        index = int(fx)
+        if not 0 <= index < len(names):
+            raise IndexError(f"no FX {index}; the track has {len(names)}")
+        return index
+    wanted = fx.lower()
+    exact = [i for i, n in enumerate(names) if n.lower() == wanted]
+    if exact:
+        return exact[0]
+    partial = [i for i, n in enumerate(names) if wanted in n.lower()]
+    if len(partial) == 1:
+        return partial[0]
+    found = "several" if partial else "no"
+    raise ValueError(f"{found} FX named like {fx!r}: {sorted(set(names))[:12]}")
+
+
+def _fx_names(track) -> list[str]:
+    return [str(RPR.TrackFX_GetFXName(track.id, i, "", 256)[3]) for i in range(track.n_fxs)]
+
+
 def _param_names(track_id, fx_index: int) -> list[str]:
     count = RPR.TrackFX_GetNumParams(track_id, fx_index)
     return [str(RPR.TrackFX_GetParamName(track_id, fx_index, i, "", 256)[4]) for i in range(count)]
@@ -259,7 +282,7 @@ def _set_shown(track_id, fx_index: int, index: int, *, text: str) -> None:
 def set_fx(
     *,
     track_index: int,
-    fx_index: int,
+    fx_index: int | str,
     params: dict[str, float | str] | None = None,
     config: dict[str, str] | None = None,
 ) -> dict:
@@ -270,13 +293,15 @@ def set_fx(
     what the plugin displays ("-1" or "-1 dB" for a ceiling, "250 Hz"), found by search.
     config: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's
     {"FILE0": "/path/sample.wav", "DONE": ""} to load a sample.
-    track_index -1 is the master track.
+    track_index -1 is the master track. fx_index: the FX's index or name ("channel").
     Returns each parameter's value as the plugin displays it.
     """
     project = get_project()
     track = project.master_track if track_index == -1 else project.tracks[track_index]
-    if not 0 <= fx_index < track.n_fxs:
-        return {"success": False, "error": f"track {track_index} has no FX {fx_index}"}
+    try:
+        fx_index = fx_index_of(_fx_names(track), fx_index)
+    except (IndexError, ValueError) as e:
+        return {"success": False, "error": f"track {track_index}: {e}"}
     shown = {}
     for name, value in (config or {}).items():
         if not RPR.TrackFX_SetNamedConfigParm(track.id, fx_index, name, str(value)):
@@ -320,14 +345,14 @@ def write_envelope(
     track_index: int,
     points: str,
     target: str = "fx",
-    fx_index: int | None = None,
+    fx_index: int | str | None = None,
     param: str | None = None,
     clear: bool = True,
 ) -> dict:
     """
     Write automation as "BEAT:VALUE[:SHAPE]" points (beats from the project start),
     separated by spaces. target: volume (VALUE in dB), pan (-1 left .. 1 right), or fx
-    (fx_index + param name/index; VALUE in the plugin's units, as set_fx takes).
+    (fx_index or FX name + param name/index; VALUE in the plugin's units).
     SHAPE: linear (default), square, slow, fast_start, fast_end, bezier.
     clear: first delete existing points between the first and last beat written.
     """
@@ -343,6 +368,11 @@ def write_envelope(
     if not parsed:
         return {"success": False, "error": "no points"}
     track = get_project().tracks[track_index]
+    if target == "fx" and fx_index is not None:
+        try:
+            fx_index = fx_index_of(_fx_names(track), fx_index)
+        except (IndexError, ValueError) as e:
+            return {"success": False, "error": str(e)}
     _write_points(track, target, parsed, clear=clear, fx_index=fx_index, param=param)
     return {"success": True, "track_index": track_index, "target": target,
             "points": len(parsed), "beats": [parsed[0][0], parsed[-1][0]]}

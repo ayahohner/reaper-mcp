@@ -3,6 +3,7 @@
 import pytest
 
 from reaper_mcp.compose_tools import (
+    fx_index_of,
     normalized_for,
     note_stats,
     parse_key,
@@ -113,3 +114,14 @@ def test_shown_number_reads_display_text():
 def test_normalized_for_finds_rising_and_falling_displays():
     assert abs(normalized_for(lambda v: -24 + 24 * v, -1.0) - 23 / 24) < 1e-5
     assert abs(normalized_for(lambda v: 100 - 100 * v, 25.0) - 0.75) < 1e-5
+
+
+def test_fx_index_of_reads_index_or_name():
+    names = ["JS: Alien Bass", "zone 48", "zone 51", "duck", "JS: Channel (high-pass)"]
+    assert fx_index_of(names, 2) == 2
+    assert fx_index_of(names, "duck") == 3
+    assert fx_index_of(names, "channel") == 4
+    with pytest.raises(ValueError):
+        fx_index_of(names, "zone")
+    with pytest.raises(IndexError):
+        fx_index_of(names, 9)

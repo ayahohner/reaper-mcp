@@ -259,6 +259,48 @@ def analyze_tracks(
     return result
 
 
+MAX_FADER_DB = 12.0
+
+
+def level_tracks(*, targets: dict[str, float], start: float | None = None,
+                 end: float | None = None) -> dict:
+    """
+    Gain staging: set each track's fader so the track, soloed in place over
+    start..end (its sends and ducking included, master FX bypassed), measures
+    its target integrated LUFS. targets: {track index: LUFS}, e.g. a kick at -20
+    and the rest placed around it, so the mix sums quietly and the master has headroom.
+    Returns per track [measured before, fader dB after]; faders stop at +12 dB.
+    """
+    project = get_project()
+    master_fx = project.master_track.fxs
+    enabled = [fx.is_enabled for fx in master_fx]
+    result: dict = {}
+    try:
+        for fx in master_fx:
+            fx.disable()
+        for key, target in targets.items():
+            index = int(key)
+            track = project.tracks[index]
+            path, _, _ = render_span([index], start, end)
+            try:
+                data, rate = _read(path)
+            finally:
+                path.unlink(missing_ok=True)
+            lufs = m.level_summary(data, rate)["lufs"]
+            if lufs is None or lufs < -70:
+                result[index] = "silent in this span"
+                continue
+            volume = track.get_info_value("D_VOL") * 10 ** ((target - lufs) / 20)
+            volume = min(volume, 10 ** (MAX_FADER_DB / 20))
+            track.set_info_value("D_VOL", volume)
+            result[index] = [lufs, round(20 * np.log10(max(volume, 1e-9)), 1)]
+    finally:
+        for fx, was in zip(master_fx, enabled, strict=True):
+            if was:
+                fx.enable()
+    return {"success": True, "columns": ["lufs_before", "fader_db"], "tracks": result}
+
+
 SAMPLE_COLUMNS = ("file", "seconds", "peak_db", "attack_ms", "tail_s", "rms_300ms_db",
                   "centroid_hz", "pitch", "width_db")
 
@@ -296,4 +338,4 @@ def audition_samples(*, folder: str, match: str | None = None, limit: int = 40) 
     return result
 
 
-TOOLS = (analyze_audio, analyze_tracks, audition_samples)
+TOOLS = (analyze_audio, analyze_tracks, level_tracks, audition_samples)
