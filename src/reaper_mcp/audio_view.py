@@ -26,7 +26,8 @@ from reaper_mcp.reaper import RPR, get_project
 from reaper_mcp.render_tools import SOLO_IN_PLACE, _render
 
 CUSTOM_SPAN = 0  # RENDER_BOUNDSFLAG: render RENDER_STARTPOS..RENDER_ENDPOS
-SECTIONS = ("level", "time", "spectrum", "stereo", "rhythm")
+SECTIONS = ("level", "time", "spectrum", "stereo", "rhythm", "key")
+DEFAULT_SECTIONS = SECTIONS[:-1]  # key costs a few seconds; ask for it
 RATE = 48000
 
 
@@ -122,7 +123,9 @@ def _measure(data: np.ndarray, rate: int, include: tuple[str, ...], *, resolutio
     if "stereo" in include:
         result["stereo"] = m.stereo_summary(data, rate)
     if "rhythm" in include:
-        result["rhythm"] = m.onset_summary(data, rate)
+        result["rhythm"] = {**m.onset_summary(data, rate), "tempo_bpm": m.tempo_bpm(data, rate)}
+    if "key" in include:
+        result["key"] = m.key_summary(data, rate)
     return result
 
 
@@ -140,17 +143,18 @@ def analyze_audio(
     Render once and measure it: the mix, or only `tracks` (soloed in place, so
     their sends to FX tracks are heard), over span = [start, end] seconds (default: whole project).
     file: measure an audio file instead (a reference, or a render kept earlier).
-    include: any of level, time, spectrum, stereo, rhythm (default all).
+    include: any of level, time, spectrum, stereo, rhythm, key (default all but key).
       level: LUFS, true peak, peak, RMS, crest, clipped samples, DC.
-      time: LUFS per bar (per 2 s for files).
+      time: LUFS per bar (for files, per 2 s or longer so there are at most 64).
       spectrum: dB per octave band (resolution="third" for 1/3 octaves), centroid, rolloff, flatness.
       stereo: correlation, side/mid width dB, mono-sum loss dB, per band sub/low/mid/high/air.
-      rhythm: onset count and rate.
+      rhythm: onset count and rate, estimated tempo.
+      key: most likely key and runner-up with correlation, pitch-class energy in % (C first).
     picture: also write a PNG (level + log spectrogram, bar lines) and return its path; Read it to look.
     keep_render: save the rendered WAV here, to compare against later with file=.
     """
     start, end = (span[0], span[1]) if span else (None, None)
-    include_set = tuple(include) if include else SECTIONS
+    include_set = tuple(include) if include else DEFAULT_SECTIONS
     unknown = sorted(set(include_set) - set(SECTIONS))
     if unknown:
         return {"success": False, "error": f"unknown include {unknown}; use {list(SECTIONS)}"}
@@ -169,7 +173,8 @@ def analyze_audio(
             data = data[first:last]
             offset = start or 0.0
         source = {"file": str(path)}
-        segment, label, bars = 2.0, "2 s", None
+        segment = max(2.0, float(np.ceil(len(data) / rate / 64)))
+        label, bars = f"{segment:g} s", None
     else:
         rendered, offset, stop = render_span(tracks, start, end)
         data, rate = _read(rendered)

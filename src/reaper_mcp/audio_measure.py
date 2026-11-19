@@ -336,3 +336,51 @@ def pitch_note(hz: float) -> str:
     names = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
     cents = int(round(100 * (midi - nearest)))
     return f"{names[nearest % 12]}{nearest // 12 - 1}{cents:+d}"
+
+
+# Tempo and key
+
+# Krumhansl-Kessler key profiles, tonic first.
+MAJOR_PROFILE = (6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88)
+MINOR_PROFILE = (6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17)
+PITCH_CLASSES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
+
+
+def _analysis_mono(data: np.ndarray, rate: int, target: int = 22050) -> np.ndarray:
+    from scipy.signal import resample_poly
+
+    mono = data.mean(axis=1)
+    if rate != target:
+        g = np.gcd(rate, target)
+        mono = resample_poly(mono, target // g, rate // g)
+    return mono.astype(np.float32)
+
+
+def tempo_bpm(data: np.ndarray, rate: int) -> float:
+    """Estimated tempo, BPM (librosa onset autocorrelation)."""
+    import librosa
+
+    mono = _analysis_mono(data, rate)
+    if not np.any(mono):
+        return 0.0
+    return round(float(np.atleast_1d(librosa.feature.tempo(y=mono, sr=22050))[0]), 1)
+
+
+def key_summary(data: np.ndarray, rate: int) -> dict:
+    """Most likely key by correlating the average chroma with major and minor
+    profiles. chroma: share of pitch-class energy, C first, in percent."""
+    import librosa
+
+    mono = _analysis_mono(data, rate)
+    if not np.any(mono):
+        return {"key": None}
+    chroma = librosa.feature.chroma_cqt(y=mono, sr=22050).mean(axis=1)
+    scores = []
+    for tonic in range(12):
+        rolled = np.roll(chroma, -tonic)
+        for mode, profile in (("major", MAJOR_PROFILE), ("minor", MINOR_PROFILE)):
+            scores.append((float(np.corrcoef(rolled, profile)[0, 1]), f"{PITCH_CLASSES[tonic]} {mode}"))
+    scores.sort(reverse=True)
+    return {"key": scores[0][1], "confidence": round(scores[0][0], 2),
+            "runner_up": scores[1][1], "runner_up_confidence": round(scores[1][0], 2),
+            "chroma_pct": [int(round(100 * c / chroma.sum())) for c in chroma]}

@@ -146,3 +146,19 @@ def test_pitch_note():
     assert m.pitch_note(43.65) == "F1+0"
     assert m.pitch_note(45) == "F#1-47"
     assert m.pitch_note(0) == ""
+
+
+def test_key_of_an_f_minor_triad():
+    def note(midi):
+        return tone(440 * 2 ** ((midi - 69) / 12), seconds=3.0, amplitude=0.2)
+    chord = note(53) + note(56) + note(60) + 0.5 * note(41)  # F3 Ab3 C4 over F2
+    result = m.key_summary(both(chord), RATE)
+    assert result["key"] in ("F minor", "Ab major")
+    assert result["chroma_pct"][5] == max(result["chroma_pct"])
+
+
+def test_tempo_of_a_click_track():
+    clicks = np.zeros(RATE * 12)
+    for beat in np.arange(0, 12, 60 / 150):
+        clicks[int(beat * RATE):int(beat * RATE) + 300] = 0.8
+    assert m.tempo_bpm(both(clicks), RATE) in (pytest.approx(150, abs=3), pytest.approx(75, abs=2))
