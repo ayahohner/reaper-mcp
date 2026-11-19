@@ -9,6 +9,7 @@ note, where one call per note costs a few hundred.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from statistics import mean, pstdev
 
 from reaper_mcp import pictures
@@ -589,4 +590,53 @@ def note_view(
     return result
 
 
-TOOLS = (write_notes, clear_items, set_fx, write_envelope, duck, note_view)
+
+def place_audio(*, track_index: int, items: list[dict]) -> dict:
+    """
+    Put audio files on a track as items, positioned in beats (beat 0 = bar 1):
+    field recordings, risers, vocal phrases, one-shots. Each item:
+    {"file": path, "beat": start, "beats": length (default: the whole file at
+    its rate), "offset_s": seconds skipped into the file, "gain_db": 0,
+    "pitch": semitones (formant-free shift, tempo kept), "rate": playback
+    rate (pitch preserved), "fade_in"/"fade_out": beats, "loop": repeat the
+    file to fill "beats"}. Clear the span first with clear_items to rebuild.
+    """
+    track = get_project().tracks[track_index]
+    placed, missing = 0, []
+    for spec in items:
+        path = Path(spec["file"]).expanduser()
+        if not path.is_file():
+            missing.append(str(path))
+            continue
+        source = RPR.PCM_Source_CreateFromFile(str(path))
+        rate = float(spec.get("rate", 1.0))
+        source_s = RPR.GetMediaSourceLength(source, False)
+        source_s = source_s[0] if isinstance(source_s, (list, tuple)) else source_s
+        start = RPR.TimeMap2_QNToTime(0, spec["beat"])
+        if "beats" in spec:
+            length = RPR.TimeMap2_QNToTime(0, spec["beat"] + spec["beats"]) - start
+        else:
+            length = (source_s - spec.get("offset_s", 0.0)) / rate
+        item = RPR.AddMediaItemToTrack(track.id)
+        take = RPR.AddTakeToMediaItem(item)
+        RPR.SetMediaItemTake_Source(take, source)
+        beat_s = 60 / RPR.Master_GetTempo()
+        for param, value in (("D_POSITION", start), ("D_LENGTH", length),
+                             ("D_FADEINLEN", spec.get("fade_in", 0.0) * beat_s),
+                             ("D_FADEOUTLEN", spec.get("fade_out", 0.0) * beat_s),
+                             ("B_LOOPSRC", 1.0 if spec.get("loop") else 0.0)):
+            RPR.SetMediaItemInfo_Value(item, param, value)
+        for param, value in (("D_STARTOFFS", spec.get("offset_s", 0.0)),
+                             ("D_VOL", 10 ** (spec.get("gain_db", 0.0) / 20)),
+                             ("D_PITCH", spec.get("pitch", 0.0)), ("D_PLAYRATE", rate),
+                             ("B_PPITCH", 1.0)):
+            RPR.SetMediaItemTakeInfo_Value(take, param, value)
+        placed += 1
+    RPR.UpdateArrange()
+    result = {"success": not missing, "track_index": track_index, "placed": placed}
+    if missing:
+        result["missing"] = missing[:5]
+    return result
+
+
+TOOLS = (write_notes, clear_items, place_audio, set_fx, write_envelope, duck, note_view)

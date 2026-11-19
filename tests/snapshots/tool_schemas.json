@@ -1283,6 +1283,31 @@
       "type": "object"
     }
   },
+  "place_audio": {
+    "description": "Put audio files on a track as items, positioned in beats (beat 0 = bar 1):\nfield recordings, risers, vocal phrases, one-shots. Each item:\n{\"file\": path, \"beat\": start, \"beats\": length (default: the whole file at\nits rate), \"offset_s\": seconds skipped into the file, \"gain_db\": 0,\n\"pitch\": semitones (formant-free shift, tempo kept), \"rate\": playback\nrate (pitch preserved), \"fade_in\"/\"fade_out\": beats, \"loop\": repeat the\nfile to fill \"beats\"}. Clear the span first with clear_items to rebuild.",
+    "input_schema": {
+      "properties": {
+        "items": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "items"
+      ],
+      "title": "place_audioArguments",
+      "type": "object"
+    }
+  },
   "play_project": {
     "description": "Start project playback from the current cursor position.",
     "input_schema": {
