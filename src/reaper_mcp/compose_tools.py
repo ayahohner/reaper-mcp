@@ -266,11 +266,31 @@ def _formatted(track_id, fx_index: int, index: int) -> str:
     return str(formatted[4]) if isinstance(formatted, (list, tuple)) else str(formatted)
 
 
+def choice_for(shown_text_at, text: str, *, steps: int = 256) -> float | None:
+    """The first normalized value (0-1) whose display reads `text`, ignoring
+    case and spaces ("Andromeda", "1/8", "Dotted"), or None. shown_text_at(v)
+    sets the parameter to v and returns its display text."""
+    wanted = "".join(text.lower().split())
+    for i in range(steps + 1):
+        if "".join(shown_text_at(i / steps).lower().split()) == wanted:
+            return i / steps
+    return None
+
+
 def _set_shown(track_id, fx_index: int, index: int, *, text: str) -> None:
-    """Set a parameter to the value it displays as `text` ("-1", "-1 dB")."""
+    """Set a parameter to the value it displays as `text`: a named choice
+    ("Andromeda", "1/8") by scanning, a number ("-1", "-1 dB") by bisection."""
+    def shown_text_at(value: float) -> str:
+        RPR.TrackFX_SetParamNormalized(track_id, fx_index, index, value)
+        return _formatted(track_id, fx_index, index)
+
+    choice = choice_for(shown_text_at, text)
+    if choice is not None:
+        RPR.TrackFX_SetParamNormalized(track_id, fx_index, index, choice)
+        return
     target = shown_number(text)
     if target is None:
-        raise ValueError(f"no number in {text!r}")
+        raise ValueError(f"no choice displays {text!r}, and it has no number")
 
     def shown_at(value: float) -> float:
         RPR.TrackFX_SetParamNormalized(track_id, fx_index, index, value)
@@ -294,7 +314,8 @@ def set_fx(
     Set several parameters of one FX at once. params: {name or index: value};
     names match case-insensitively, whole or as a unique substring. A number is
     in the plugin's own units (a JSFX slider's value, a VST's 0-1); a string is
-    what the plugin displays ("-1" or "-1 dB" for a ceiling, "250 Hz"), found by search.
+    what the plugin displays, found by search: a number ("-1 dB", "250 Hz") or a
+    named choice ("Andromeda", "1/8").
     config: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's
     {"FILE0": "/path/sample.wav", "DONE": ""} to load a sample.
     track_index -1 is the master track. fx_index: the FX's index or name ("channel").
@@ -461,23 +482,36 @@ def duck(
     end_beat: float | None = None,
 ) -> dict:
     """
-    Sidechain-style ducking without routing: read the note starts on the trigger
-    track (a kick) and, on each of tracks, automate a gain plugin named "duck"
+    Sidechain-style ducking without routing: read the hits on the trigger track
+    (a kick: its MIDI note starts and its audio items' starts) and, on each of tracks, automate a gain plugin named "duck"
     (added at the end of the chain if missing) to dip to depth_db at every hit
     and recover over release_beats. The fader stays free. Limit to
     [start_beat, end_beat) if given; replaces earlier duck points in that span.
     """
     project = get_project()
-    hits = [beat for beat, _, _, _ in _notes_of(project.tracks[trigger])
+    hits = [beat for beat in _hits_of(project.tracks[trigger])
             if (start_beat is None or beat >= start_beat) and (end_beat is None or beat < end_beat)]
     if not hits:
-        return {"success": False, "error": f"no notes on track {trigger} in that span"}
+        return {"success": False, "error": f"no notes or audio items on track {trigger} in that span"}
     points = duck_points(hits, depth_db=depth_db, release_beats=release_beats)
     for index in tracks:
         track = project.tracks[index]
         _write_points(track, "fx", points, clear=True, fx_index=_duck_fx(track), param=0)
     return {"success": True, "tracks": tracks, "hits": len(set(hits)),
             "beats": [min(hits), max(hits)], "points_per_track": len(points)}
+
+
+def _hits_of(track) -> list[float]:
+    """Where a trigger track hits, in beats: MIDI note starts and audio item starts."""
+    hits = [beat for beat, _, _, _ in _notes_of(track)]
+    for item_index in range(track.n_items):
+        item = RPR.GetTrackMediaItem(track.id, item_index)
+        take = RPR.GetActiveTake(item)
+        if is_null(take) or RPR.TakeIsMIDI(take):
+            continue
+        start = RPR.GetMediaItemInfo_Value(item, "D_POSITION")
+        hits.append(round(RPR.TimeMap2_timeToQN(0, start), 4))
+    return sorted(hits)
 
 
 # Note view

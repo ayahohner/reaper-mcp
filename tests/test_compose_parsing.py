@@ -3,6 +3,7 @@
 import pytest
 
 from reaper_mcp.compose_tools import (
+    choice_for,
     fx_index_of,
     normalized_for,
     note_stats,
@@ -125,3 +126,12 @@ def test_fx_index_of_reads_index_or_name():
         fx_index_of(names, "zone")
     with pytest.raises(IndexError):
         fx_index_of(names, 9)
+
+
+def test_choice_for_finds_named_choices():
+    modes = ["Gemini", "Hydra", "Andromeda", "Lyra"]
+    shown = lambda v: modes[min(int(v * len(modes)), len(modes) - 1)]  # noqa: E731
+    assert shown(choice_for(shown, "andromeda")) == "Andromeda"
+    assert choice_for(shown, "Gemini") == 0.0
+    assert choice_for(shown, "Orion") is None
+    assert choice_for(lambda v: "1/8" if v > 0.5 else "1/16", " 1/8 ") > 0.5

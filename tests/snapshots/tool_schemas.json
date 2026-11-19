@@ -752,7 +752,7 @@
     }
   },
   "duck": {
-    "description": "Sidechain-style ducking without routing: read the note starts on the trigger\ntrack (a kick) and, on each of tracks, automate a gain plugin named \"duck\"\n(added at the end of the chain if missing) to dip to depth_db at every hit\nand recover over release_beats. The fader stays free. Limit to\n[start_beat, end_beat) if given; replaces earlier duck points in that span.",
+    "description": "Sidechain-style ducking without routing: read the hits on the trigger track\n(a kick: its MIDI note starts and its audio items' starts) and, on each of tracks, automate a gain plugin named \"duck\"\n(added at the end of the chain if missing) to dip to depth_db at every hit\nand recover over release_beats. The fader stays free. Limit to\n[start_beat, end_beat) if given; replaces earlier duck points in that span.",
     "input_schema": {
       "properties": {
         "depth_db": {
@@ -1579,7 +1579,7 @@
     }
   },
   "set_fx": {
-    "description": "Set several parameters of one FX at once. params: {name or index: value};\nnames match case-insensitively, whole or as a unique substring. A number is\nin the plugin's own units (a JSFX slider's value, a VST's 0-1); a string is\nwhat the plugin displays (\"-1\" or \"-1 dB\" for a ceiling, \"250 Hz\"), found by search.\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\ntrack_index -1 is the master track. fx_index: the FX's index or name (\"channel\").\nReturns each parameter's value as the plugin displays it.",
+    "description": "Set several parameters of one FX at once. params: {name or index: value};\nnames match case-insensitively, whole or as a unique substring. A number is\nin the plugin's own units (a JSFX slider's value, a VST's 0-1); a string is\nwhat the plugin displays, found by search: a number (\"-1 dB\", \"250 Hz\") or a\nnamed choice (\"Andromeda\", \"1/8\").\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\ntrack_index -1 is the master track. fx_index: the FX's index or name (\"channel\").\nReturns each parameter's value as the plugin displays it.",
     "input_schema": {
       "properties": {
         "config": {
