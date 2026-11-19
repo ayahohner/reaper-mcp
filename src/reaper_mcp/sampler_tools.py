@@ -23,7 +23,7 @@ NUMBER = re.compile(r"(?<!\d)(\d{2,3})(?!\d)")
 STEPS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 
 # RS5k parameter indices (stable across versions) and their scaling
-VOLUME, MIN_VELOCITY_GAIN, NOTE_START, NOTE_END, PITCH_START, PITCH_END = 0, 2, 3, 4, 5, 6
+VOLUME, PAN, MIN_VELOCITY_GAIN, NOTE_START, NOTE_END, PITCH_START, PITCH_END = 0, 1, 2, 3, 4, 5, 6
 MAX_VOICES, ATTACK, RELEASE, OBEY_NOTE_OFFS, LOOP = 8, 9, 10, 11, 12
 MS_RANGE = 2000.0  # Attack and Release run 0..2000 ms
 # RS5k "MODE" config: 0 = freely configurable shifted (pitch moves from the start
@@ -147,7 +147,7 @@ def load_one_shots(
     playing its file whole, on one MIDI note, louder with velocity. Write the
     hits with write_notes (velocity = dynamics, small timing offsets = feel).
     pads: {"36": "/path/kick.aif"} or {"36": {"file": path, "pitch": semitones,
-    "gain_db": 0}}. velocity_db: the gain at the softest velocity.
+    "gain_db": 0, "pan": -1..1}}. velocity_db: the gain at the softest velocity.
     Replaces pads this tool added before.
     """
     specs = {}
@@ -167,6 +167,7 @@ def load_one_shots(
         pitch = (float(spec.get("pitch", 0.0)) + PITCH_RANGE) / (2 * PITCH_RANGE)
         for param, value in ((NOTE_START, note / 127), (NOTE_END, note / 127),
                              (PITCH_START, pitch), (PITCH_END, pitch),
+                             (PAN, (float(spec.get("pan", 0.0)) + 1) / 2),
                              (ATTACK, 0.0), (RELEASE, release_ms / MS_RANGE),
                              (OBEY_NOTE_OFFS, 0.0), (LOOP, 0.0)):
             RPR.TrackFX_SetParam(track.id, fx, param, value)

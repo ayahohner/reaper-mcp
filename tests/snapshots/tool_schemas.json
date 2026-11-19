@@ -1218,7 +1218,7 @@
     }
   },
   "load_one_shots": {
-    "description": "A drum rack from one-shot samples: one ReaSamplOmatic5000 per pad, each\nplaying its file whole, on one MIDI note, louder with velocity. Write the\nhits with write_notes (velocity = dynamics, small timing offsets = feel).\npads: {\"36\": \"/path/kick.aif\"} or {\"36\": {\"file\": path, \"pitch\": semitones,\n\"gain_db\": 0}}. velocity_db: the gain at the softest velocity.\nReplaces pads this tool added before.",
+    "description": "A drum rack from one-shot samples: one ReaSamplOmatic5000 per pad, each\nplaying its file whole, on one MIDI note, louder with velocity. Write the\nhits with write_notes (velocity = dynamics, small timing offsets = feel).\npads: {\"36\": \"/path/kick.aif\"} or {\"36\": {\"file\": path, \"pitch\": semitones,\n\"gain_db\": 0, \"pan\": -1..1}}. velocity_db: the gain at the softest velocity.\nReplaces pads this tool added before.",
     "input_schema": {
       "properties": {
         "pads": {
