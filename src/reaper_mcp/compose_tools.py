@@ -296,7 +296,8 @@ def duck_points(hits: list[float], *, depth_db: float, release_beats: float,
     hits = sorted(set(hits))
     for i, hit in enumerate(hits):
         following = hits[i + 1] if i + 1 < len(hits) else None
-        if hit >= gap and (not points or points[-1][0] < hit - gap):
+        recovered = not points or (points[-1][1] == 0.0 and points[-1][0] < hit - gap)
+        if hit >= gap and recovered:
             points.append((hit - gap, 0.0, ENVELOPE_SHAPES["linear"]))
         points.append((hit, depth_db, ENVELOPE_SHAPES["slow"]))
         back = hit + release_beats
