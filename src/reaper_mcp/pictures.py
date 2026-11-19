@@ -157,6 +157,52 @@ def track_stack(stems: dict[str, np.ndarray], rate: int, path: Path, *, title: s
     return path
 
 
+def track_spectra(stems: dict[str, np.ndarray], rate: int, path: Path, *, title: str) -> Path:
+    """Where each track sits: its average spectrum (1/6-octave smoothed, one
+    colour per track, translucent fills so overlaps mix colours) and, as a thin
+    line, its loud moments (95th percentile per band over 100 ms frames), the
+    still picture of an analyzer's slow peak fall-off."""
+    plt = _pyplot()
+    from scipy.signal import stft
+
+    edges = 20.0 * 2 ** (np.arange(0, np.log2(20000 / 20) * 6 + 1) / 6)
+    centres = np.sqrt(edges[:-1] * edges[1:])
+    fig, ax = plt.subplots(figsize=(12, 5), dpi=110)
+    colours = plt.get_cmap("tab10")
+    for i, (name, data) in enumerate(stems.items()):
+        mono = data.mean(axis=1)
+        freqs, _, z = stft(mono, fs=rate, nperseg=8192, noverlap=8192 - int(0.1 * rate))
+        power = np.abs(z) ** 2
+        bands = np.array([power[(freqs >= lo) & (freqs < hi)].sum(axis=0)
+                          for lo, hi in zip(edges[:-1], edges[1:], strict=True)])
+        loud_frames = bands.sum(axis=0) > 1e-9
+        if not loud_frames.any():
+            continue
+        bands = bands[:, loud_frames]
+        mean_db = 10 * np.log10(bands.mean(axis=1) + 1e-12)
+        peak_db = 10 * np.log10(np.percentile(bands, 95, axis=1) + 1e-12)
+        colour = colours(i % 10)
+        ax.fill_between(centres, -200, mean_db, color=colour, alpha=0.28, lw=0)
+        ax.plot(centres, mean_db, color=colour, lw=1.2, label=name)
+        ax.plot(centres, peak_db, color=colour, lw=0.6, ls="--", alpha=0.8)
+    top = ax.get_ylim()[1]
+    ax.set_ylim(top - 70, top + 3)
+    ax.set_xscale("log")
+    ax.set_xlim(25, min(20000, rate / 2))
+    ticks = [f for f in FREQ_TICKS if 25 <= f <= rate / 2]
+    ax.set_xticks(ticks, [_freq_label(f) for f in ticks])
+    ax.set_xlabel("Hz", fontsize=7)
+    ax.set_ylabel("dB per 1/6 octave (shared scale)", fontsize=7)
+    ax.tick_params(labelsize=7)
+    ax.grid(lw=0.3, alpha=0.4)
+    ax.legend(fontsize=7, ncols=min(5, len(stems)), loc="upper right")
+    ax.set_title(f"{title}  (solid: average while playing, dashed: loud moments)", fontsize=8, loc="left")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+    return path
+
+
 def _constant_q(mono: np.ndarray, rate: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Constant-Q power in dB, 24 bins per octave from 20 Hz: a short window up
     high and a long one down low, so 44 Hz bass harmonics separate and hats

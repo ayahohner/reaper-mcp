@@ -173,3 +173,15 @@ def test_track_stack_draws_one_row_per_track(tmp_path):
     path = pictures.track_stack({"0: bass": tone, "1: quiet": tone * 0.01}, rate,
                                 tmp_path / "stack.png", title="t", bars=[(0.0, 1), (1.0, 2)])
     assert path.is_file() and path.stat().st_size > 10_000
+
+
+def test_track_spectra_draws_overlaid_spectra(tmp_path):
+    from reaper_mcp import pictures
+
+    rate = 22050
+    t = np.arange(rate * 2) / rate
+    low = np.stack([np.sin(2 * np.pi * 60 * t)] * 2, axis=1) * 0.3
+    high = np.stack([np.sin(2 * np.pi * 3000 * t)] * 2, axis=1) * 0.1
+    path = pictures.track_spectra({"0: sub": low, "1: hats": high, "2: silent": low * 0},
+                                  rate, tmp_path / "spectra.png", title="t")
+    assert path.is_file() and path.stat().st_size > 10_000

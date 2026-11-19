@@ -210,15 +210,17 @@ def analyze_tracks(
     tracks: list[int],
     start: float | None = None,
     end: float | None = None,
-    picture: bool = False,
+    picture: str | None = None,
 ) -> dict:
     """
     Render each listed track alone over start..end and compare them: per track LUFS,
     peak, spectral centroid and octave-band levels (dB, shared bands_hz header), plus
     masking: covered_pct = share of the track's energy where another listed track is
     louder (per 1/3 octave, ~43 ms), and worst = the track covering most and where.
-    picture: also write one PNG with a row per track (spectrogram on one shared
-    colour scale, level line, bar lines) to see the arrangement at once.
+    picture: "stack" writes a PNG with a row per track (spectrogram on one shared
+    colour scale, level line, bar lines): the arrangement at once. "spectra"
+    overlays each track's average spectrum in its own colour: where each sits,
+    and where they overlap, for EQ.
     """
     if len(tracks) < 2:
         return {"success": False, "error": "list at least two tracks to compare"}
@@ -251,11 +253,17 @@ def analyze_tracks(
         per_track[key].update(cover)
     result = {"success": True, "span_s": [round(span[0], 3), round(span[1], 3)],
               "bands_hz": bands_hz, "tracks": per_track}
-    if picture:
+    if picture == "stack":
         image = pictures.track_stack(stems, rate, pictures.default_path("tracks"),
                                      title=f"tracks {tracks}", start=span[0],
                                      bars=_bars(span[0], span[1]))
         result["picture"] = str(image)
+    elif picture == "spectra":
+        image = pictures.track_spectra(stems, rate, pictures.default_path("spectra"),
+                                       title=f"tracks {tracks}, {span[0]:.1f}-{span[1]:.1f} s")
+        result["picture"] = str(image)
+    elif picture is not None:
+        result["picture_error"] = "picture is 'stack' or 'spectra'"
     return result
 
 
