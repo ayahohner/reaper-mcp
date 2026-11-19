@@ -16,6 +16,7 @@ Logic and GarageBand keep every installed Apple Loop in one SQLite file,
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -55,6 +56,11 @@ def compatible(key: int, key_type: int, target: tuple[int, int]) -> bool:
     return False
 
 
+def _word(text: str) -> re.Pattern:
+    """Matches at the start of a word: "rain" finds "Hard Rain", not "Train"."""
+    return re.compile(r"(?<![a-z0-9])" + re.escape(text.lower()))
+
+
 def find_loops(
     *,
     text: str | None = None,
@@ -67,7 +73,7 @@ def find_loops(
 ) -> dict:
     """
     Search the installed Apple Loops (Logic's loop index) for samples to use.
-    text: words that must all appear in the file name, instrument type/subtype,
+    text: words that must all start a word in the file name, instrument type/subtype,
     genre, descriptors or sound pack ("crickets", "choir dark", "foley",
     "vocals female relaxed"). key: "F minor" keeps loops in that key or its
     relative major (Ab); unpitched also keeps loops without a key (drums,
@@ -79,8 +85,8 @@ def find_loops(
     if not DATABASE.is_file():
         return {"success": False, "error": f"no Logic loop index at {DATABASE}"}
     target = parse_key(key) if key else None
-    words = [w.lower() for w in (text or "").split()]
-    banned = [w.lower() for w in (exclude or "").split()]
+    words = [_word(w) for w in (text or "").split()]
+    banned = [_word(w) for w in (exclude or "").split()]
     con = sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True)
     try:
         packs: dict[int, str] = {}
@@ -100,7 +106,7 @@ def find_loops(
     for url, length, bpm, beats, k, k_type, file_type, kind, sub, genre, desc, pack in rows:
         path = unquote(urlparse(url).path)
         haystack = f"{Path(path).stem} {kind} {sub} {genre} {desc} {pack}".lower()
-        if any(w not in haystack for w in words) or any(w in haystack for w in banned):
+        if not all(w.search(haystack) for w in words) or any(w.search(haystack) for w in banned):
             continue
         if target and not (compatible(k, k_type, target) or (unpitched and key_name(k, k_type) is None)):
             continue

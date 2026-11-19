@@ -47,3 +47,5 @@ def test_find_loops(tmp_path, monkeypatch):
     crickets = lib.find_loops(text="animals")["loops"][0]
     assert crickets[2] is None and crickets[4] is None  # one-shot: no tempo, no key
     assert lib.find_loops(text="choir", exclude="cheerful")["matches"] == 1
+    assert lib.find_loops(text="hoir")["matches"] == 0  # words match at their start only
+    assert lib.find_loops(text="crick")["matches"] == 1
