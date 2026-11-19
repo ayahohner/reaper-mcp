@@ -1606,7 +1606,7 @@
     }
   },
   "write_notes": {
-    "description": "Write a part as one MIDI item: starts at start_beat (quarter notes from the\nproject start; beat 0 = bar 1), lasts length_beats * repeat.\nnotes: \"PITCH@BEAT[:LENGTH[:VELOCITY]]\" separated by spaces, BEAT relative to the\nitem start; PITCH as 0-127 or a name (C4 = 60, F1, Bb0); chords as \"F1+C2@0:2\".\nDefault length 1 beat, velocity 100. repeat: play the pattern that many times,\nevery length_beats. Example, a bar of 8ths: \"F1@0:0.5:120 F1@0.5:0.5:90 Ab1@1:1\".",
+    "description": "Write a part as one MIDI item: starts at start_beat (quarter notes from the\nproject start; beat 0 = bar 1), lasts length_beats * repeat. replace: first\ndelete the track's items that overlap that span, so writing a part again\nrewrites it instead of stacking on it.\nnotes: \"PITCH@BEAT[:LENGTH[:VELOCITY]]\" separated by spaces, BEAT relative to the\nitem start; PITCH as 0-127 or a name (C4 = 60, F1, Bb0); chords as \"F1+C2@0:2\".\nDefault length 1 beat, velocity 100. repeat: play the pattern that many times,\nevery length_beats. Example, a bar of 8ths: \"F1@0:0.5:120 F1@0.5:0.5:90 Ab1@1:1\".",
     "input_schema": {
       "properties": {
         "channel": {
@@ -1626,6 +1626,11 @@
           "default": 1,
           "title": "Repeat",
           "type": "integer"
+        },
+        "replace": {
+          "default": true,
+          "title": "Replace",
+          "type": "boolean"
         },
         "start_beat": {
           "title": "Start Beat",

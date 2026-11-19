@@ -93,10 +93,13 @@ def write_notes(
     notes: str,
     repeat: int = 1,
     channel: int = 0,
+    replace: bool = True,
 ) -> dict:
     """
     Write a part as one MIDI item: starts at start_beat (quarter notes from the
-    project start; beat 0 = bar 1), lasts length_beats * repeat.
+    project start; beat 0 = bar 1), lasts length_beats * repeat. replace: first
+    delete the track's items that overlap that span, so writing a part again
+    rewrites it instead of stacking on it.
     notes: "PITCH@BEAT[:LENGTH[:VELOCITY]]" separated by spaces, BEAT relative to the
     item start; PITCH as 0-127 or a name (C4 = 60, F1, Bb0); chords as "F1+C2@0:2".
     Default length 1 beat, velocity 100. repeat: play the pattern that many times,
@@ -111,6 +114,7 @@ def write_notes(
                                            f"({length_beats}); first at beat {late[0][0]}"}
     track = get_project().tracks[track_index]
     total = length_beats * repeat
+    replaced = _delete_items(track, start_beat, start_beat + total) if replace else 0
     item = RPR.CreateNewMIDIItemInProj(track.id, start_beat, start_beat + total, True)
     if isinstance(item, (list, tuple)):
         item = item[0]
@@ -129,8 +133,20 @@ def write_notes(
         "item_index": track.n_items - 1,
         "beats": [start_beat, start_beat + total],
         "notes": len(parsed) * repeat,
+        **({"replaced_items": replaced} if replaced else {}),
         "range": [pictures.note_name(min(pitches)), pictures.note_name(max(pitches))] if pitches else [],
     }
+
+
+def _delete_items(track, start_beat: float, end_beat: float) -> int:
+    """Delete the track's items overlapping [start_beat, end_beat); how many."""
+    start = RPR.TimeMap2_QNToTime(0, start_beat)
+    end = RPR.TimeMap2_QNToTime(0, end_beat)
+    doomed = [item for item in track.items
+              if item.position < end - 1e-6 and item.position + item.length > start + 1e-6]
+    for item in doomed:
+        item.delete()
+    return len(doomed)
 
 
 def _param_names(track_id, fx_index: int) -> list[str]:
