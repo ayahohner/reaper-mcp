@@ -662,7 +662,7 @@
     }
   },
   "duck": {
-    "description": "Sidechain-style ducking without routing: read the note starts on the trigger\ntrack (a kick) and write volume automation on each of tracks that dips to\ndepth_db at every hit and recovers over release_beats. Limit to\n[start_beat, end_beat) if given. Replaces existing volume points in that span.",
+    "description": "Sidechain-style ducking without routing: read the note starts on the trigger\ntrack (a kick) and, on each of tracks, automate a gain plugin named \"duck\"\n(added at the end of the chain if missing) to dip to depth_db at every hit\nand recover over release_beats. The fader stays free. Limit to\n[start_beat, end_beat) if given; replaces earlier duck points in that span.",
     "input_schema": {
       "properties": {
         "depth_db": {
