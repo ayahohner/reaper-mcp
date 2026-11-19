@@ -193,17 +193,67 @@ def _resolve_param(names: list[str], fx_index: int, param: str | int) -> int:
     raise ValueError(f"FX {fx_index} has no parameter like {param!r}; some: {names[:12]}")
 
 
+NUMBER_SHOWN = re.compile(r"([-+]?)(inf|\d*\.?\d+)", re.IGNORECASE)
+
+
+def shown_number(text: str) -> float | None:
+    """The first number in a parameter's display text ("-12.0 dB" -> -12.0,
+    "-inf" -> -1e9), or None."""
+    match = NUMBER_SHOWN.search(text)
+    if not match:
+        return None
+    sign = -1.0 if match.group(1) == "-" else 1.0
+    return sign * (1e9 if match.group(2).lower() == "inf" else float(match.group(2)))
+
+
+def normalized_for(shown_at, target: float, *, steps: int = 24) -> float:
+    """The normalized value (0-1) whose display shows `target`, by bisection.
+    shown_at(v) sets the parameter to v and returns the number displayed;
+    the display must rise or fall steadily with v."""
+    low, high = 0.0, 1.0
+    rising = shown_at(1.0) >= shown_at(0.0)
+    for _ in range(steps):
+        middle = (low + high) / 2
+        if (shown_at(middle) < target) == rising:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def _formatted(track_id, fx_index: int, index: int) -> str:
+    formatted = RPR.TrackFX_GetFormattedParamValue(track_id, fx_index, index, "", 256)
+    return str(formatted[4]) if isinstance(formatted, (list, tuple)) else str(formatted)
+
+
+def _set_shown(track_id, fx_index: int, index: int, *, text: str) -> None:
+    """Set a parameter to the value it displays as `text` ("-1", "-1 dB")."""
+    target = shown_number(text)
+    if target is None:
+        raise ValueError(f"no number in {text!r}")
+
+    def shown_at(value: float) -> float:
+        RPR.TrackFX_SetParamNormalized(track_id, fx_index, index, value)
+        number = shown_number(_formatted(track_id, fx_index, index))
+        if number is None:
+            raise ValueError(f"parameter {index} does not display a number")
+        return number
+
+    RPR.TrackFX_SetParamNormalized(track_id, fx_index, index, normalized_for(shown_at, target))
+
+
 def set_fx(
     *,
     track_index: int,
     fx_index: int,
-    params: dict[str, float] | None = None,
+    params: dict[str, float | str] | None = None,
     config: dict[str, str] | None = None,
 ) -> dict:
     """
-    Set several parameters of one FX at once, in the plugin's own units (a JSFX
-    slider's value, a VST's 0-1). params: {name or index: value}; names match
-    case-insensitively, whole or as a unique substring.
+    Set several parameters of one FX at once. params: {name or index: value};
+    names match case-insensitively, whole or as a unique substring. A number is
+    in the plugin's own units (a JSFX slider's value, a VST's 0-1); a string is
+    what the plugin displays ("-1" or "-1 dB" for a ceiling, "250 Hz"), found by search.
     config: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's
     {"FILE0": "/path/sample.wav", "DONE": ""} to load a sample.
     track_index -1 is the master track.
@@ -228,10 +278,14 @@ def set_fx(
         return {"success": False, "error": "; ".join(problems)}
     for name, value in (params or {}).items():
         index = resolved[name]
-        RPR.TrackFX_SetParam(track.id, fx_index, index, float(value))
-        label = names[index]
-        formatted = RPR.TrackFX_GetFormattedParamValue(track.id, fx_index, index, "", 256)
-        shown[label] = str(formatted[4]) if isinstance(formatted, (list, tuple)) else str(formatted)
+        if isinstance(value, str):
+            try:
+                _set_shown(track.id, fx_index, index, text=value)
+            except ValueError as e:
+                return {"success": False, "error": f"{names[index]}: {e}", "set_so_far": shown}
+        else:
+            RPR.TrackFX_SetParam(track.id, fx_index, index, float(value))
+        shown[names[index]] = _formatted(track.id, fx_index, index)
     result = {"success": True, "track_index": track_index, "fx_index": fx_index, "params": shown}
     if config:
         result["config"] = sorted(config)

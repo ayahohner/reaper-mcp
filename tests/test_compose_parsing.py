@@ -2,7 +2,14 @@
 
 import pytest
 
-from reaper_mcp.compose_tools import note_stats, parse_key, parse_notes, parse_pitch
+from reaper_mcp.compose_tools import (
+    normalized_for,
+    note_stats,
+    parse_key,
+    parse_notes,
+    parse_pitch,
+    shown_number,
+)
 
 
 @pytest.mark.parametrize(("text", "pitch"), [
@@ -94,3 +101,15 @@ def test_duck_points_cut_short_by_the_next_hit():
     assert cut[0] == pytest.approx(0.23)
     assert cut[1] == pytest.approx(-10 * (1 - 0.23 / 0.5))
     assert points[2][:2] == (0.25, -10)
+
+
+def test_shown_number_reads_display_text():
+    assert shown_number("-12.0 dB") == -12.0
+    assert shown_number("250 Hz") == 250.0
+    assert shown_number("-inf") == -1e9
+    assert shown_number("normal") is None
+
+
+def test_normalized_for_finds_rising_and_falling_displays():
+    assert abs(normalized_for(lambda v: -24 + 24 * v, -1.0) - 23 / 24) < 1e-5
+    assert abs(normalized_for(lambda v: 100 - 100 * v, 25.0) - 0.75) < 1e-5
