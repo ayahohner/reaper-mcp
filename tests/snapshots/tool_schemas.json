@@ -1160,7 +1160,7 @@
     }
   },
   "load_multisample": {
-    "description": "Make a playable multisampled instrument on a track from a folder of samples\nnamed by root note (\"Super_48.aif\" or \"Pad C3.wav\"): one ReaSamplOmatic5000\nper root, each covering the notes nearest it and repitching from it.\nmatch: only files whose name contains this. middle_c: what the library calls\nMIDI 60 (\"C3\" for Logic/Alchemy, \"C4\" for most others). Notes stop on note-off\nwith release_ms; loop repeats each sample while a note is held.\nReplaces RS5k zones this tool added before.",
+    "description": "Make a playable multisampled instrument on a track from a folder of samples\nnamed by root note (\"Super_48.aif\" or \"Pad C3.wav\"): one ReaSamplOmatic5000\nper root, each covering the notes nearest it and repitching from it.\nmatch: only files whose name contains this. middle_c: what the library calls\nMIDI 60 (\"C3\" for Logic/Alchemy, \"C4\" for most others). Notes stop on note-off\nwith release_ms; loop repeats each sample while a note is held.\nvelocity_db: the gain at the softest velocity (0 = velocity changes nothing).\nReplaces RS5k zones this tool added before.",
     "input_schema": {
       "properties": {
         "attack_ms": {
@@ -1202,6 +1202,11 @@
         "track_index": {
           "title": "Track Index",
           "type": "integer"
+        },
+        "velocity_db": {
+          "default": -24.0,
+          "title": "Velocity Db",
+          "type": "number"
         }
       },
       "required": [
@@ -1209,6 +1214,48 @@
         "folder"
       ],
       "title": "load_multisampleArguments",
+      "type": "object"
+    }
+  },
+  "load_one_shots": {
+    "description": "A drum rack from one-shot samples: one ReaSamplOmatic5000 per pad, each\nplaying its file whole, on one MIDI note, louder with velocity. Write the\nhits with write_notes (velocity = dynamics, small timing offsets = feel).\npads: {\"36\": \"/path/kick.aif\"} or {\"36\": {\"file\": path, \"pitch\": semitones,\n\"gain_db\": 0}}. velocity_db: the gain at the softest velocity.\nReplaces pads this tool added before.",
+    "input_schema": {
+      "properties": {
+        "pads": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ]
+          },
+          "title": "Pads",
+          "type": "object"
+        },
+        "release_ms": {
+          "default": 30.0,
+          "title": "Release Ms",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        },
+        "velocity_db": {
+          "default": -24.0,
+          "title": "Velocity Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "track_index",
+        "pads"
+      ],
+      "title": "load_one_shotsArguments",
       "type": "object"
     }
   },
