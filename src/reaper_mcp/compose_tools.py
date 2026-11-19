@@ -206,9 +206,11 @@ def set_fx(
     case-insensitively, whole or as a unique substring.
     config: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's
     {"FILE0": "/path/sample.wav", "DONE": ""} to load a sample.
+    track_index -1 is the master track.
     Returns each parameter's value as the plugin displays it.
     """
-    track = get_project().tracks[track_index]
+    project = get_project()
+    track = project.master_track if track_index == -1 else project.tracks[track_index]
     if not 0 <= fx_index < track.n_fxs:
         return {"success": False, "error": f"track {track_index} has no FX {fx_index}"}
     shown = {}

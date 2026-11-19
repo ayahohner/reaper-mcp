@@ -1377,7 +1377,7 @@
     }
   },
   "set_fx": {
-    "description": "Set several parameters of one FX at once, in the plugin's own units (a JSFX\nslider's value, a VST's 0-1). params: {name or index: value}; names match\ncase-insensitively, whole or as a unique substring.\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\nReturns each parameter's value as the plugin displays it.",
+    "description": "Set several parameters of one FX at once, in the plugin's own units (a JSFX\nslider's value, a VST's 0-1). params: {name or index: value}; names match\ncase-insensitively, whole or as a unique substring.\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\ntrack_index -1 is the master track.\nReturns each parameter's value as the plugin displays it.",
     "input_schema": {
       "properties": {
         "config": {
