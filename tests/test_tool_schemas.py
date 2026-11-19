@@ -56,3 +56,10 @@ def test_optional_parameters_accept_null():
         and "null" not in [schema.get("type")] + [s.get("type") for s in schema.get("anyOf", [])]
     ]
     assert offenders == []
+
+
+def test_each_tool_registered_once():
+    from reaper_mcp import server
+
+    names = [tool.__name__ for module in server.TOOL_MODULES for tool in module.TOOLS]
+    assert len(names) == len(set(names))

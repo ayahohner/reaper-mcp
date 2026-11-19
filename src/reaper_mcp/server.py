@@ -74,7 +74,7 @@ def _serialized(fn: Callable[..., dict]) -> Callable[..., str]:
 
 mcp = _server
 
-for _module in (
+TOOL_MODULES = (
     project_tools,
     track_tools,
     midi_tools,
@@ -90,8 +90,9 @@ for _module in (
     audio_view,
     compose_tools,
     sampler_tools,
-    loop_library,
-):
+)
+
+for _module in TOOL_MODULES:
     for _tool in _module.TOOLS:
         # cleandoc: the SDK sends the docstring verbatim, source indentation included.
         _server.tool(description=inspect.cleandoc(_tool.__doc__ or ""), structured_output=False)(
