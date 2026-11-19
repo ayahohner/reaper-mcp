@@ -851,7 +851,7 @@
     }
   },
   "find_loops": {
-    "description": "Search the installed Apple Loops (Logic's loop index) for samples to use.\ntext: words that must all appear in the file name, instrument type/subtype,\ngenre, descriptors or sound pack (\"crickets\", \"choir dark\", \"foley\",\n\"vocals female relaxed\"). key: \"F minor\" keeps loops in that key or its\nrelative major (Ab); unpitched also keeps loops without a key (drums,\nnoise, foley). tempo and seconds: [min, max]. One-shot sound effects\n(nature, foley, animals) have no tempo or beats. exclude: words that must not\nappear. One row per loop, columns named once; key is like \"Ab\" or \"Fm\".\nLogic plays loops at the project tempo and key; here they play as recorded.",
+    "description": "Search the installed Apple Loops (Logic's loop index) for samples to use.\ntext: words that must all start a word in the file name, instrument type/subtype,\ngenre, descriptors or sound pack (\"crickets\", \"choir dark\", \"foley\",\n\"vocals female relaxed\"). key: \"F minor\" keeps loops in that key or its\nrelative major (Ab); unpitched also keeps loops without a key (drums,\nnoise, foley). tempo and seconds: [min, max]. One-shot sound effects\n(nature, foley, animals) have no tempo or beats. exclude: words that must not\nappear. One row per loop, columns named once; key is like \"Ab\" or \"Fm\".\nLogic plays loops at the project tempo and key; here they play as recorded.",
     "input_schema": {
       "properties": {
         "exclude": {
