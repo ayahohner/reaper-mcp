@@ -28,3 +28,9 @@ def test_root_of_without_a_root():
 def test_zones_split_halfway_and_cover_the_keyboard():
     assert zones([36, 39, 42]) == [(0, 37), (38, 40), (41, 127)]
     assert zones([60]) == [(0, 127)]
+
+
+def test_root_of_prefers_a_midi_number_of_the_same_pitch_class():
+    assert root_of("10CC 27D#1-left.aif", middle_c="C3") == 27
+    assert root_of("10CC 48C2-left.aif", middle_c="C3") == 48
+    assert root_of("Pad 01 C3.wav", middle_c="C3") == 60

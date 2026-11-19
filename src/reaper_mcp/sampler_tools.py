@@ -32,16 +32,21 @@ PITCH_RANGE = 80.0  # pitch parameters run -80..+80 semitones
 def root_of(name: str, *, middle_c: str) -> int | None:
     """A zone's root note from its file name. Note names read with middle C
     (MIDI 60) called middle_c: "C3" for Logic and Yamaha, "C4" for most others.
-    Without a note name, a lone 2-3 digit number is taken as the MIDI note."""
+    Without a note name, a lone 2-3 digit number is taken as the MIDI note. With
+    both ("10CC 27D#1"), a number naming the same pitch class wins: libraries
+    mislabel octaves more often than MIDI numbers."""
     stem = Path(name).stem
     octave_offset = 60 - 12 * (int(middle_c[1:]) + 1)
+    numbers = [int(n) for n in NUMBER.findall(stem) if 0 <= int(n) <= 127]
     found = NOTE.findall(stem)
     if found:
         letter, accidental, octave = found[-1]
         semitone = STEPS[letter.lower()] + {"#": 1, "b": -1}.get(accidental, 0)
+        agreeing = [n for n in numbers if n % 12 == semitone % 12]
+        if agreeing:
+            return agreeing[-1]
         midi = 12 * (int(octave) + 1) + semitone + octave_offset
         return midi if 0 <= midi <= 127 else None
-    numbers = [int(n) for n in NUMBER.findall(stem) if 0 <= int(n) <= 127]
     return numbers[-1] if len(numbers) == 1 else None
 
 
