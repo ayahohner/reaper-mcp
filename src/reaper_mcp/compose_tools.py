@@ -155,21 +155,27 @@ def _param_names(track_id, fx_index: int) -> list[str]:
 
 
 def _resolve_param(names: list[str], fx_index: int, param: str | int) -> int:
-    """A parameter's index from its index or its name (exact, else a unique substring)."""
+    """A parameter's index from its index or its name. Names match case-insensitively,
+    preferring in turn: the whole name, the name without a trailing "(unit)",
+    a unique prefix, a unique substring."""
     if isinstance(param, int) or (isinstance(param, str) and param.isdigit()):
         index = int(param)
         if not 0 <= index < len(names):
             raise IndexError(f"FX {fx_index} has no parameter {index} (it has {len(names)})")
         return index
     wanted = param.strip().lower()
-    exact = [i for i, n in enumerate(names) if n.lower() == wanted]
-    if exact:
-        return exact[0]
-    partial = [i for i, n in enumerate(names) if wanted in n.lower()]
-    if len(partial) == 1:
-        return partial[0]
-    if partial:
-        raise ValueError(f"parameter {param!r} matches several: {[names[i] for i in partial][:8]}")
+    lowered = [n.lower() for n in names]
+    bare = [re.sub(r"\s*\([^)]*\)\s*$", "", n) for n in lowered]
+    for candidates in ([i for i, n in enumerate(lowered) if n == wanted],
+                       [i for i, n in enumerate(bare) if n == wanted]):
+        if candidates:
+            return candidates[0]
+    for candidates in ([i for i, n in enumerate(lowered) if n.startswith(wanted)],
+                       [i for i, n in enumerate(lowered) if wanted in n]):
+        if len(candidates) == 1:
+            return candidates[0]
+        if candidates:
+            raise ValueError(f"parameter {param!r} matches several: {[names[i] for i in candidates][:8]}")
     raise ValueError(f"FX {fx_index} has no parameter like {param!r}; some: {names[:12]}")
 
 
@@ -196,8 +202,16 @@ def set_fx(
         if not RPR.TrackFX_SetNamedConfigParm(track.id, fx_index, name, str(value)):
             return {"success": False, "error": f"FX {fx_index} refused config {name!r}"}
     names = _param_names(track.id, fx_index) if params else []
+    resolved, problems = {}, []
+    for name in params or {}:
+        try:
+            resolved[name] = _resolve_param(names, fx_index, name)
+        except (IndexError, ValueError) as e:
+            problems.append(str(e))
+    if problems:  # set nothing rather than half of what was asked
+        return {"success": False, "error": "; ".join(problems)}
     for name, value in (params or {}).items():
-        index = _resolve_param(names, fx_index, name)
+        index = resolved[name]
         RPR.TrackFX_SetParam(track.id, fx_index, index, float(value))
         label = names[index]
         formatted = RPR.TrackFX_GetFormattedParamValue(track.id, fx_index, index, "", 256)

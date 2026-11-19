@@ -60,3 +60,17 @@ def test_note_stats():
 
 def test_note_stats_empty():
     assert note_stats([], scale=None) == {"notes": 0}
+
+
+def test_resolve_param_prefers_whole_then_bare_then_prefix():
+    from reaper_mcp.compose_tools import _resolve_param
+
+    names = ["Lowpass (Hz)", "LFO to lowpass (oct)", "FM index", "LFO to FM index", "Level (dB)"]
+    assert _resolve_param(names, 0, "lowpass") == 0      # name without its unit
+    assert _resolve_param(names, 0, "FM index") == 2     # whole name beats substring
+    assert _resolve_param(names, 0, "lfo to low") == 1   # unique prefix
+    assert _resolve_param(names, 0, "3") == 3
+    with pytest.raises(ValueError, match="several"):
+        _resolve_param(names, 0, "index")  # inside two names
+    with pytest.raises(ValueError, match="no parameter"):
+        _resolve_param(names, 0, "resonance")
