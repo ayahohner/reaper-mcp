@@ -20,6 +20,7 @@ from reaper_mcp import (
     project_tools,
     region_render,
     render_tools,
+    sampler_tools,
     template_tools,
     track_tools,
 )
@@ -86,6 +87,7 @@ for _module in (
     template_tools,
     audio_view,
     compose_tools,
+    sampler_tools,
 ):
     for _tool in _module.TOOLS:
         # cleandoc: the SDK sends the docstring verbatim, source indentation included.

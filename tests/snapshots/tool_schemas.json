@@ -941,6 +941,59 @@
       "type": "object"
     }
   },
+  "load_multisample": {
+    "description": "Make a playable multisampled instrument on a track from a folder of samples\nnamed by root note (\"Super_48.aif\" or \"Pad C3.wav\"): one ReaSamplOmatic5000\nper root, each covering the notes nearest it and repitching from it.\nmatch: only files whose name contains this. middle_c: what the library calls\nMIDI 60 (\"C3\" for Logic/Alchemy, \"C4\" for most others). Notes stop on note-off\nwith release_ms; loop repeats each sample while a note is held.\nReplaces RS5k zones this tool added before.",
+    "input_schema": {
+      "properties": {
+        "attack_ms": {
+          "default": 5.0,
+          "title": "Attack Ms",
+          "type": "number"
+        },
+        "folder": {
+          "title": "Folder",
+          "type": "string"
+        },
+        "loop": {
+          "default": false,
+          "title": "Loop",
+          "type": "boolean"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match"
+        },
+        "middle_c": {
+          "default": "C3",
+          "title": "Middle C",
+          "type": "string"
+        },
+        "release_ms": {
+          "default": 400.0,
+          "title": "Release Ms",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "folder"
+      ],
+      "title": "load_multisampleArguments",
+      "type": "object"
+    }
+  },
   "load_project": {
     "description": "Load a REAPER project (.rpp) from the given file path.",
     "input_schema": {
