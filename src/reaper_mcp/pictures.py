@@ -59,14 +59,9 @@ def spectrogram(data: np.ndarray, rate: int, path: Path, *, title: str,
     read in project seconds.
     """
     plt = _pyplot()
-    from scipy.signal import stft
-
     mono = data.mean(axis=1)
     seconds = len(mono) / rate
-    n_fft = 4096 if seconds > 2 else 2048
-    freqs, times, z = stft(mono, fs=rate, nperseg=n_fft, noverlap=n_fft * 3 // 4)
-    power = np.abs(z) ** 2
-    power_db = 10 * np.log10(power + 1e-20)
+    times, freqs, power_db = _constant_q(mono, rate)
     top = float(power_db.max())
     times = times + start
 
@@ -90,8 +85,7 @@ def spectrogram(data: np.ndarray, rate: int, path: Path, *, title: str,
     ax_level.tick_params(labelsize=7)
     ax_level.set_title(title, fontsize=9, loc="left")
 
-    keep = (freqs >= 20) & (freqs <= min(20000, rate / 2))
-    mesh = ax_spec.pcolormesh(times, freqs[keep], power_db[keep], shading="auto",
+    mesh = ax_spec.pcolormesh(times, freqs, power_db, shading="auto",
                               cmap="magma", vmin=top - DB_RANGE, vmax=top, rasterized=True)
     ax_spec.set_yscale("log")
     ax_spec.set_ylim(20, min(20000, rate / 2))
@@ -114,6 +108,24 @@ def spectrogram(data: np.ndarray, rate: int, path: Path, *, title: str,
     fig.savefig(path)
     plt.close(fig)
     return path
+
+
+def _constant_q(mono: np.ndarray, rate: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Constant-Q power in dB, 24 bins per octave from 20 Hz: a short window up
+    high and a long one down low, so 44 Hz bass harmonics separate and hats
+    stay sharp in time. Returns (frame times, bin frequencies, dB[bin, frame])."""
+    import librosa
+
+    fmin, per_octave = 20.0, 24
+    n_bins = int(np.log2(min(20000, 0.45 * rate) / fmin) * per_octave)
+    octaves = -(-n_bins // per_octave)
+    hop = 2 ** (octaves - 1)  # librosa halves the rate once per octave
+    hop *= max(1, round(len(mono) / hop / 4000))  # at most ~4000 frames
+    spectrum = np.abs(librosa.cqt(mono.astype(np.float32), sr=rate, hop_length=hop, fmin=fmin,
+                                  n_bins=n_bins, bins_per_octave=per_octave))
+    freqs = librosa.cqt_frequencies(n_bins=n_bins, fmin=fmin, bins_per_octave=per_octave)
+    times = librosa.frames_to_time(np.arange(spectrum.shape[1]), sr=rate, hop_length=hop)
+    return times, freqs, 20 * np.log10(spectrum + 1e-10)
 
 
 def note_name(pitch: int) -> str:
