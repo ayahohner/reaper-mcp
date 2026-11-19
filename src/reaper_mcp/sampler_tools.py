@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from reaper_mcp.reaper import RPR, get_project
+from reaper_mcp.reaper import RPR, get_project, held
 
 RS5K = "ReaSamplOmatic5000 (Cockos)"
 SUFFIXES = (".wav", ".aif", ".aiff", ".flac")
@@ -61,6 +61,7 @@ def zones(roots: list[int]) -> list[tuple[int, int]]:
     return ranges
 
 
+@held
 def load_multisample(
     *,
     track_index: int,

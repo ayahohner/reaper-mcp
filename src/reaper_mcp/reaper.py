@@ -7,8 +7,10 @@ attaches the ReaScript functions at runtime, so its own stub declares none of
 them), and gives tests a single seam to replace with a fake.
 """
 
+import functools
 import logging
-from typing import Protocol, cast
+from collections.abc import Callable
+from typing import Protocol, TypeVar, cast
 
 import reapy
 from reapy import reascript_api as _reascript_api
@@ -219,3 +221,19 @@ def ensure_connected() -> None:
 def get_project() -> reapy.Project:
     ensure_connected()
     return reapy.Project()
+
+
+F = TypeVar("F", bound=Callable)
+
+
+def held(func: F) -> F:
+    """Run a tool's ReaScript calls in one hold of reapy's bridge. Each call
+    otherwise waits for REAPER's next defer cycle (about 30 ms), so a tool
+    placing hundreds of items or notes took minutes; held, it takes seconds.
+    REAPER's UI waits meanwhile: hold only tools that never wait on playback."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        ensure_connected()
+        with reapy.inside_reaper():
+            return func(*args, **kwargs)
+    return cast(F, wrapper)

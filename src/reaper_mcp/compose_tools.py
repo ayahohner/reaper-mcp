@@ -13,7 +13,7 @@ from pathlib import Path
 from statistics import mean, pstdev
 
 from reaper_mcp import pictures
-from reaper_mcp.reaper import RPR, get_project, is_null
+from reaper_mcp.reaper import RPR, get_project, held, is_null
 
 NOTE_RE = re.compile(r"^([A-Ga-g])([#b]?)(-?\d)$")
 PITCH_CLASSES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -86,6 +86,7 @@ def parse_key(key: str) -> tuple[int, set[int]]:
 # Tools
 
 
+@held
 def write_notes(
     *,
     track_index: int,
@@ -150,6 +151,7 @@ def _delete_items(track, start_beat: float, end_beat: float) -> int:
     return len(doomed)
 
 
+@held
 def clear_items(*, tracks: list[int] | None = None, start_beat: float = 0.0,
                 end_beat: float | None = None, envelopes: bool = True) -> dict:
     """
@@ -280,6 +282,7 @@ def _set_shown(track_id, fx_index: int, index: int, *, text: str) -> None:
     RPR.TrackFX_SetParamNormalized(track_id, fx_index, index, normalized_for(shown_at, target))
 
 
+@held
 def set_fx(
     *,
     track_index: int,
@@ -341,6 +344,7 @@ def _envelope(track, target: str, *, fx_index: int | None, param: str | int | No
     return RPR.GetFXEnvelope(track.id, fx_index, index, True)
 
 
+@held
 def write_envelope(
     *,
     track_index: int,
@@ -446,6 +450,7 @@ def _duck_fx(track) -> int:
     return index
 
 
+@held
 def duck(
     *,
     tracks: list[int],
@@ -591,6 +596,7 @@ def note_view(
 
 
 
+@held
 def place_audio(*, track_index: int, items: list[dict]) -> dict:
     """
     Put audio files on a track as items, positioned in beats (beat 0 = bar 1):
