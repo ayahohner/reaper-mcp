@@ -311,6 +311,26 @@ def duck_points(hits: list[float], *, depth_db: float, release_beats: float,
     return points
 
 
+DUCK_FX = "JS: utility/volume_pan_sample_accurate_auto"
+DUCK_NAME = "duck"
+
+
+def _duck_fx(track) -> int:
+    """Index of the track's gain plugin renamed "duck", appended if missing.
+
+    Ducking lives on its own plugin because a track Volume envelope takes the
+    fader over: with one in place, set_track_volume no longer changes anything.
+    """
+    for index in range(RPR.TrackFX_GetCount(track.id)):
+        if RPR.TrackFX_GetNamedConfigParm(track.id, index, "renamed_name", "", 256)[4] == DUCK_NAME:
+            return index
+    index = RPR.TrackFX_AddByName(track.id, DUCK_FX, False, 1)  # 1: always add, at the end
+    if index < 0:
+        raise ValueError(f"could not add {DUCK_FX}")
+    RPR.TrackFX_SetNamedConfigParm(track.id, index, "renamed_name", DUCK_NAME)
+    return index
+
+
 def duck(
     *,
     tracks: list[int],
@@ -322,9 +342,10 @@ def duck(
 ) -> dict:
     """
     Sidechain-style ducking without routing: read the note starts on the trigger
-    track (a kick) and write volume automation on each of tracks that dips to
-    depth_db at every hit and recovers over release_beats. Limit to
-    [start_beat, end_beat) if given. Replaces existing volume points in that span.
+    track (a kick) and, on each of tracks, automate a gain plugin named "duck"
+    (added at the end of the chain if missing) to dip to depth_db at every hit
+    and recover over release_beats. The fader stays free. Limit to
+    [start_beat, end_beat) if given; replaces earlier duck points in that span.
     """
     project = get_project()
     hits = [beat for beat, _, _, _ in _notes_of(project.tracks[trigger])
@@ -333,7 +354,8 @@ def duck(
         return {"success": False, "error": f"no notes on track {trigger} in that span"}
     points = duck_points(hits, depth_db=depth_db, release_beats=release_beats)
     for index in tracks:
-        _write_points(project.tracks[index], "volume", points, clear=True)
+        track = project.tracks[index]
+        _write_points(track, "fx", points, clear=True, fx_index=_duck_fx(track), param=0)
     return {"success": True, "tracks": tracks, "hits": len(set(hits)),
             "beats": [min(hits), max(hits)], "points_per_track": len(points)}
 

@@ -173,6 +173,13 @@ class ReaScriptAPI(Protocol):
     def TrackFX_SetNamedConfigParm(  # noqa: PLR0917 -- REAPER's own signature
         self, _track: Pointer, _fx: int, _name: str, _value: str, /
     ) -> bool: ...
+    def TrackFX_GetNamedConfigParm(  # noqa: PLR0917 -- REAPER's own signature
+        self, _track: Pointer, _fx: int, _name: str, _buf: str, _size: int, /
+    ) -> list: ...
+    def TrackFX_GetCount(self, _track: Pointer, /) -> int: ...
+    def TrackFX_AddByName(  # noqa: PLR0917 -- REAPER's own signature
+        self, _track: Pointer, _name: str, _rec_fx: bool, _instantiate: int, /
+    ) -> int: ...
 
 
 RPR = cast(ReaScriptAPI, _reascript_api)
