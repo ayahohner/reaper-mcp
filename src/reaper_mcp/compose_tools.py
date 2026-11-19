@@ -150,17 +150,31 @@ def _delete_items(track, start_beat: float, end_beat: float) -> int:
 
 
 def clear_items(*, tracks: list[int] | None = None, start_beat: float = 0.0,
-                end_beat: float | None = None) -> dict:
+                end_beat: float | None = None, envelopes: bool = True) -> dict:
     """
     Delete the items on `tracks` (default: every track) that overlap
     start_beat..end_beat (default: to the end), to rebuild an arrangement.
+    envelopes: also delete every automation point (volume, pan, FX parameters,
+    ducking) in that span.
     """
     project = get_project()
     indices = tracks if tracks is not None else range(project.n_tracks)
     end = 1e9 if end_beat is None else end_beat
     deleted = {i: _delete_items(project.tracks[i], start_beat, end) for i in indices}
-    return {"success": True, "deleted": {i: n for i, n in deleted.items() if n},
-            "total": sum(deleted.values())}
+    result = {"success": True, "deleted": {i: n for i, n in deleted.items() if n},
+              "total": sum(deleted.values())}
+    if envelopes:
+        start_s = RPR.TimeMap2_QNToTime(0, start_beat)
+        end_s = 1e9 if end_beat is None else RPR.TimeMap2_QNToTime(0, end_beat)
+        cleared = 0
+        for i in indices:
+            track_id = project.tracks[i].id
+            for e in range(RPR.CountTrackEnvelopes(track_id)):
+                envelope = RPR.GetTrackEnvelope(track_id, e)
+                RPR.DeleteEnvelopePointRange(envelope, start_s - 1e-6, end_s)
+                cleared += 1
+        result["envelopes_cleared"] = cleared
+    return result
 
 
 def _param_names(track_id, fx_index: int) -> list[str]:

@@ -110,6 +110,53 @@ def spectrogram(data: np.ndarray, rate: int, path: Path, *, title: str,
     return path
 
 
+def track_stack(stems: dict[str, np.ndarray], rate: int, path: Path, *, title: str,
+                start: float = 0.0, bars: list[tuple[float, int]] | None = None) -> Path:
+    """One row per track on a shared time axis: its log-frequency spectrogram,
+    all rows on one colour scale (so a quiet track looks quiet), and its
+    short-term level (dBFS RMS, 400 ms, right axis) as a white line. Shows the
+    arrangement and who fills which register when."""
+    plt = _pyplot()
+    rows = []
+    for name, data in stems.items():
+        mono = data.mean(axis=1)
+        times, freqs, power_db = _constant_q(mono, rate)
+        step = max(1, int(0.4 * rate))
+        n = len(mono) // step
+        rms = 10 * np.log10(np.mean(data[: n * step].reshape(n, step, 2) ** 2, axis=(1, 2)) + 1e-12)
+        rows.append((name, times + start, freqs, power_db,
+                     start + (np.arange(n) + 0.5) * step / rate, rms))
+    top = max(float(r[3].max()) for r in rows)
+    seconds = max(len(d) for d in stems.values()) / rate
+    fig, axes = plt.subplots(len(rows), 1, figsize=(12, 0.9 * len(rows) + 0.6), dpi=110,
+                             sharex=True, squeeze=False, gridspec_kw={"hspace": 0.08})
+    ticks = [f for f in (50, 200, 1000, 5000) if f <= rate / 2]
+    for (name, times, freqs, power_db, level_t, rms), ax in zip(rows, axes[:, 0], strict=True):
+        ax.pcolormesh(times, freqs, power_db, shading="auto", cmap="magma",
+                      vmin=top - DB_RANGE, vmax=top, rasterized=True)
+        ax.set_yscale("log")
+        ax.set_ylim(25, min(16000, rate / 2))
+        ax.set_yticks(ticks, [_freq_label(f) for f in ticks])
+        ax.tick_params(labelsize=6, length=2)
+        ax.set_ylabel(name, fontsize=7, rotation=0, ha="right", va="center")
+        level = ax.twinx()
+        level.plot(level_t, rms, color="white", lw=0.8)
+        level.set_ylim(-60, 0)
+        level.set_yticks([-48, -24, 0])
+        level.tick_params(labelsize=5, length=2)
+        for t, _ in bars or []:
+            if start <= t <= start + seconds:
+                ax.axvline(t, color="white", lw=0.25, alpha=0.25)
+    _bar_lines(axes[0, 0], start=start, end=start + seconds, bars=bars)
+    axes[0, 0].set_title(f"{title}  (right axis: dBFS RMS)", fontsize=8, loc="left", pad=10)
+    axes[-1, 0].set_xlim(start, start + seconds)
+    axes[-1, 0].set_xlabel("project time, s (numbers above: bars)", fontsize=7)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+    return path
+
+
 def _constant_q(mono: np.ndarray, rate: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Constant-Q power in dB, 24 bins per octave from 20 Hz: a short window up
     high and a long one down low, so 44 Hz bass harmonics separate and hats

@@ -162,3 +162,14 @@ def test_tempo_of_a_click_track():
     for beat in np.arange(0, 12, 60 / 150):
         clicks[int(beat * RATE):int(beat * RATE) + 300] = 0.8
     assert m.tempo_bpm(both(clicks), RATE) in (pytest.approx(150, abs=3), pytest.approx(75, abs=2))
+
+
+def test_track_stack_draws_one_row_per_track(tmp_path):
+    from reaper_mcp import pictures
+
+    rate = 22050
+    t = np.arange(rate * 2) / rate
+    tone = np.stack([np.sin(2 * np.pi * 110 * t)] * 2, axis=1) * 0.3
+    path = pictures.track_stack({"0: bass": tone, "1: quiet": tone * 0.01}, rate,
+                                tmp_path / "stack.png", title="t", bars=[(0.0, 1), (1.0, 2)])
+    assert path.is_file() and path.stat().st_size > 10_000
