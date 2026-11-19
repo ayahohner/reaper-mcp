@@ -186,6 +186,94 @@
       "type": "object"
     }
   },
+  "analyze_audio": {
+    "description": "Render once and measure it: the mix, or only `tracks` (soloed in place, so\ntheir sends to FX tracks are heard), over span = [start, end] seconds (default: whole project).\nfile: measure an audio file instead (a reference, or a render kept earlier).\ninclude: any of level, time, spectrum, stereo, rhythm (default all).\n  level: LUFS, true peak, peak, RMS, crest, clipped samples, DC.\n  time: LUFS per bar (per 2 s for files).\n  spectrum: dB per octave band (resolution=\"third\" for 1/3 octaves), centroid, rolloff, flatness.\n  stereo: correlation, side/mid width dB, mono-sum loss dB, per band sub/low/mid/high/air.\n  rhythm: onset count and rate.\npicture: also write a PNG (level + log spectrogram, bar lines) and return its path; Read it to look.\nkeep_render: save the rendered WAV here, to compare against later with file=.",
+    "input_schema": {
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File"
+        },
+        "include": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Include"
+        },
+        "keep_render": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Keep Render"
+        },
+        "picture": {
+          "default": false,
+          "title": "Picture",
+          "type": "boolean"
+        },
+        "resolution": {
+          "default": "octave",
+          "title": "Resolution",
+          "type": "string"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Span"
+        },
+        "tracks": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tracks"
+        }
+      },
+      "title": "analyze_audioArguments",
+      "type": "object"
+    }
+  },
   "analyze_dynamics": {
     "description": "Render the project and measure dynamic range: RMS, peak, crest factor,\nand a simplified DR score (average peak-to-RMS over 3-second blocks).",
     "input_schema": {
@@ -215,6 +303,49 @@
     "input_schema": {
       "properties": {},
       "title": "analyze_stereo_fieldArguments",
+      "type": "object"
+    }
+  },
+  "analyze_tracks": {
+    "description": "Render each listed track alone over start..end and compare them: per track LUFS,\npeak, spectral centroid and octave-band levels (dB, shared bands_hz header), plus\nmasking: covered_pct = share of the track's energy where another listed track is\nlouder (per 1/3 octave, ~43 ms), and worst = the track covering most and where.",
+    "input_schema": {
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "tracks": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tracks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tracks"
+      ],
+      "title": "analyze_tracksArguments",
       "type": "object"
     }
   },
@@ -749,6 +880,47 @@
       "type": "object"
     }
   },
+  "note_view": {
+    "description": "Numbers (and optionally a piano roll PNG) for the written notes on tracks:\nper part range, notes outside key (key like \"F minor\"), velocity spread and\nlongest run of one velocity, notes off the 16th grid, notes per bar, same-pitch\noverlaps; across parts, pairs that sound within an octave of each other and for\nhow many beats. picture: write a piano roll (one lane per part, out-of-key notes\noutlined red) and return its path; Read it to look.",
+    "input_schema": {
+      "properties": {
+        "beats_per_bar": {
+          "default": 4,
+          "title": "Beats Per Bar",
+          "type": "integer"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "picture": {
+          "default": false,
+          "title": "Picture",
+          "type": "boolean"
+        },
+        "tracks": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tracks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tracks"
+      ],
+      "title": "note_viewArguments",
+      "type": "object"
+    }
+  },
   "play_project": {
     "description": "Start project playback from the current cursor position.",
     "input_schema": {
@@ -1016,6 +1188,57 @@
         "position"
       ],
       "title": "set_cursor_positionArguments",
+      "type": "object"
+    }
+  },
+  "set_fx": {
+    "description": "Set several parameters of one FX at once, in the plugin's own units (a JSFX\nslider's value, a VST's 0-1). params: {name or index: value}; names match\ncase-insensitively, whole or as a unique substring.\nconfig: named settings a parameter cannot reach, e.g. ReaSamplOmatic5000's\n{\"FILE0\": \"/path/sample.wav\", \"DONE\": \"\"} to load a sample.\nReturns each parameter's value as the plugin displays it.",
+    "input_schema": {
+      "properties": {
+        "config": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config"
+        },
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "params": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Params"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_index"
+      ],
+      "title": "set_fxArguments",
       "type": "object"
     }
   },
@@ -1291,6 +1514,102 @@
     "input_schema": {
       "properties": {},
       "title": "stop_transportArguments",
+      "type": "object"
+    }
+  },
+  "write_envelope": {
+    "description": "Write automation as \"BEAT:VALUE[:SHAPE]\" points (beats from the project start),\nseparated by spaces. target: volume (VALUE in dB), pan (-1 left .. 1 right), or fx\n(fx_index + param name/index; VALUE in the plugin's units, as set_fx takes).\nSHAPE: linear (default), square, slow, fast_start, fast_end, bezier.\nclear: first delete existing points between the first and last beat written.",
+    "input_schema": {
+      "properties": {
+        "clear": {
+          "default": true,
+          "title": "Clear",
+          "type": "boolean"
+        },
+        "fx_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fx Index"
+        },
+        "param": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Param"
+        },
+        "points": {
+          "title": "Points",
+          "type": "string"
+        },
+        "target": {
+          "default": "fx",
+          "title": "Target",
+          "type": "string"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "points"
+      ],
+      "title": "write_envelopeArguments",
+      "type": "object"
+    }
+  },
+  "write_notes": {
+    "description": "Write a part as one MIDI item: starts at start_beat (quarter notes from the\nproject start; beat 0 = bar 1), lasts length_beats * repeat.\nnotes: \"PITCH@BEAT[:LENGTH[:VELOCITY]]\" separated by spaces, BEAT relative to the\nitem start; PITCH as 0-127 or a name (C4 = 60, F1, Bb0); chords as \"F1+C2@0:2\".\nDefault length 1 beat, velocity 100. repeat: play the pattern that many times,\nevery length_beats. Example, a bar of 8ths: \"F1@0:0.5:120 F1@0.5:0.5:90 Ab1@1:1\".",
+    "input_schema": {
+      "properties": {
+        "channel": {
+          "default": 0,
+          "title": "Channel",
+          "type": "integer"
+        },
+        "length_beats": {
+          "title": "Length Beats",
+          "type": "number"
+        },
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "repeat": {
+          "default": 1,
+          "title": "Repeat",
+          "type": "integer"
+        },
+        "start_beat": {
+          "title": "Start Beat",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "start_beat",
+        "length_beats",
+        "notes"
+      ],
+      "title": "write_notesArguments",
       "type": "object"
     }
   }

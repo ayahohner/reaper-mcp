@@ -10,6 +10,8 @@ from mcp.server import MCPServer
 from reaper_mcp import (
     analysis_tools,
     audio_tools,
+    audio_view,
+    compose_tools,
     fx_tools,
     mastering_tools,
     midi_tools,
@@ -75,6 +77,8 @@ for _module in (
     mastering_tools,
     analysis_tools,
     template_tools,
+    audio_view,
+    compose_tools,
 ):
     for _tool in _module.TOOLS:
         # cleandoc: the SDK sends the docstring verbatim, source indentation included.
