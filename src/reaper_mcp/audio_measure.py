@@ -369,12 +369,16 @@ def tempo_bpm(data: np.ndarray, rate: int) -> float:
 def key_summary(data: np.ndarray, rate: int) -> dict:
     """Most likely key by correlating the average chroma with major and minor
     profiles. chroma: share of pitch-class energy, C first, in percent."""
+    import warnings
+
     import librosa
 
     mono = _analysis_mono(data, rate)
     if not np.any(mono):
         return {"key": None}
-    chroma = librosa.feature.chroma_cqt(y=mono, sr=22050).mean(axis=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # librosa warns about short spans; the estimate still holds
+        chroma = librosa.feature.chroma_cqt(y=mono, sr=22050).mean(axis=1)
     scores = []
     for tonic in range(12):
         rolled = np.roll(chroma, -tonic)

@@ -22,6 +22,10 @@ STEPS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 VOLUME, NOTE_START, NOTE_END, PITCH_START, PITCH_END = 0, 3, 4, 5, 6
 MAX_VOICES, ATTACK, RELEASE, OBEY_NOTE_OFFS, LOOP = 8, 9, 10, 11, 12
 MS_RANGE = 2000.0  # Attack and Release run 0..2000 ms
+# RS5k "MODE" config: 0 = freely configurable shifted (pitch moves from the start
+# value to the end value across the range), 1 = sample (ignores the note, the
+# default after loading a file), 2 = note (semitone shifted).
+FREELY_SHIFTED = "0"
 PITCH_RANGE = 80.0  # pitch parameters run -80..+80 semitones
 
 
@@ -94,10 +98,12 @@ def load_multisample(
         fx = RPR.TrackFX_AddByName(track.id, RS5K, False, 1)
         RPR.TrackFX_SetNamedConfigParm(track.id, fx, "FILE0", str(by_root[root]))
         RPR.TrackFX_SetNamedConfigParm(track.id, fx, "DONE", "")
+        RPR.TrackFX_SetNamedConfigParm(track.id, fx, "MODE", FREELY_SHIFTED)
         RPR.TrackFX_SetNamedConfigParm(track.id, fx, "renamed_name", f"zone {root}")
         for param, value in ((NOTE_START, low / 127), (NOTE_END, high / 127),
                              (PITCH_START, (low - root + PITCH_RANGE) / (2 * PITCH_RANGE)),
-                             (PITCH_END, (high - root + PITCH_RANGE) / (2 * PITCH_RANGE)),
+                             # RS5k reaches the end pitch one note past the range end
+                             (PITCH_END, (high + 1 - root + PITCH_RANGE) / (2 * PITCH_RANGE)),
                              (ATTACK, attack_ms / MS_RANGE), (RELEASE, release_ms / MS_RANGE),
                              (OBEY_NOTE_OFFS, 1.0), (LOOP, 1.0 if loop else 0.0)):
             RPR.TrackFX_SetParam(track.id, fx, param, value)
