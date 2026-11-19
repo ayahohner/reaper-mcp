@@ -449,6 +449,47 @@
       "type": "object"
     }
   },
+  "clear_items": {
+    "description": "Delete the items on `tracks` (default: every track) that overlap\nstart_beat..end_beat (default: to the end), to rebuild an arrangement.",
+    "input_schema": {
+      "properties": {
+        "end_beat": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Beat"
+        },
+        "start_beat": {
+          "default": 0.0,
+          "title": "Start Beat",
+          "type": "number"
+        },
+        "tracks": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tracks"
+        }
+      },
+      "title": "clear_itemsArguments",
+      "type": "object"
+    }
+  },
   "create_bus": {
     "description": "Create a new bus track and route the given tracks to it via sends.\ntrack_indices: list of track indices to feed into the bus.",
     "input_schema": {

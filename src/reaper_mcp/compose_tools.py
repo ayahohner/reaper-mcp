@@ -149,6 +149,20 @@ def _delete_items(track, start_beat: float, end_beat: float) -> int:
     return len(doomed)
 
 
+def clear_items(*, tracks: list[int] | None = None, start_beat: float = 0.0,
+                end_beat: float | None = None) -> dict:
+    """
+    Delete the items on `tracks` (default: every track) that overlap
+    start_beat..end_beat (default: to the end), to rebuild an arrangement.
+    """
+    project = get_project()
+    indices = tracks if tracks is not None else range(project.n_tracks)
+    end = 1e9 if end_beat is None else end_beat
+    deleted = {i: _delete_items(project.tracks[i], start_beat, end) for i in indices}
+    return {"success": True, "deleted": {i: n for i, n in deleted.items() if n},
+            "total": sum(deleted.values())}
+
+
 def _param_names(track_id, fx_index: int) -> list[str]:
     count = RPR.TrackFX_GetNumParams(track_id, fx_index)
     return [str(RPR.TrackFX_GetParamName(track_id, fx_index, i, "", 256)[4]) for i in range(count)]
@@ -475,4 +489,4 @@ def note_view(
     return result
 
 
-TOOLS = (write_notes, set_fx, write_envelope, duck, note_view)
+TOOLS = (write_notes, clear_items, set_fx, write_envelope, duck, note_view)
