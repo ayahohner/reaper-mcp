@@ -173,8 +173,10 @@ def track_spectra(stems: dict[str, np.ndarray], rate: int, path: Path, *, title:
         mono = data.mean(axis=1)
         freqs, _, z = stft(mono, fs=rate, nperseg=8192, noverlap=8192 - int(0.1 * rate))
         power = np.abs(z) ** 2
-        bands = np.array([power[(freqs >= lo) & (freqs < hi)].sum(axis=0)
-                          for lo, hi in zip(edges[:-1], edges[1:], strict=True)])
+        # a band narrower than one FFT bin (low down) takes the nearest bin
+        bands = np.array([power[inside].sum(axis=0) if (inside := (freqs >= lo) & (freqs < hi)).any()
+                          else power[np.argmin(np.abs(freqs - centre))]
+                          for lo, hi, centre in zip(edges[:-1], edges[1:], centres, strict=True)])
         loud_frames = bands.sum(axis=0) > 1e-9
         if not loud_frames.any():
             continue
