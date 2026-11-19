@@ -598,8 +598,10 @@ def place_audio(*, track_index: int, items: list[dict]) -> dict:
     {"file": path, "beat": start, "beats": length (default: the whole file at
     its rate), "offset_s": seconds skipped into the file, "gain_db": 0,
     "pitch": semitones (formant-free shift, tempo kept), "rate": playback
-    rate (pitch preserved), "fade_in"/"fade_out": beats, "loop": repeat the
-    file to fill "beats"}. Clear the span first with clear_items to rebuild.
+    rate (pitch preserved), "resample": true makes "pitch" play faster or
+    slower like a sampler (clean transients, length changes), "pan": -1..1,
+    "fade_in"/"fade_out": beats, "loop": repeat the file to fill "beats"}.
+    Clear the span first with clear_items to rebuild.
     """
     track = get_project().tracks[track_index]
     placed, missing = 0, []
@@ -609,7 +611,9 @@ def place_audio(*, track_index: int, items: list[dict]) -> dict:
             missing.append(str(path))
             continue
         source = RPR.PCM_Source_CreateFromFile(str(path))
-        rate = float(spec.get("rate", 1.0))
+        resample = bool(spec.get("resample"))
+        pitch = float(spec.get("pitch", 0.0))
+        rate = float(spec.get("rate", 1.0)) * (2 ** (pitch / 12) if resample else 1.0)
         source_s = RPR.GetMediaSourceLength(source, False)
         source_s = source_s[0] if isinstance(source_s, (list, tuple)) else source_s
         start = RPR.TimeMap2_QNToTime(0, spec["beat"])
@@ -628,8 +632,9 @@ def place_audio(*, track_index: int, items: list[dict]) -> dict:
             RPR.SetMediaItemInfo_Value(item, param, value)
         for param, value in (("D_STARTOFFS", spec.get("offset_s", 0.0)),
                              ("D_VOL", 10 ** (spec.get("gain_db", 0.0) / 20)),
-                             ("D_PITCH", spec.get("pitch", 0.0)), ("D_PLAYRATE", rate),
-                             ("B_PPITCH", 1.0)):
+                             ("D_PITCH", 0.0 if resample else pitch), ("D_PLAYRATE", rate),
+                             ("B_PPITCH", 0.0 if resample else 1.0),
+                             ("D_PAN", float(spec.get("pan", 0.0)))):
             RPR.SetMediaItemTakeInfo_Value(take, param, value)
         placed += 1
     RPR.UpdateArrange()

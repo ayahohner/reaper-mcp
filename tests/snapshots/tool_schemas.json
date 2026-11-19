@@ -1284,7 +1284,7 @@
     }
   },
   "place_audio": {
-    "description": "Put audio files on a track as items, positioned in beats (beat 0 = bar 1):\nfield recordings, risers, vocal phrases, one-shots. Each item:\n{\"file\": path, \"beat\": start, \"beats\": length (default: the whole file at\nits rate), \"offset_s\": seconds skipped into the file, \"gain_db\": 0,\n\"pitch\": semitones (formant-free shift, tempo kept), \"rate\": playback\nrate (pitch preserved), \"fade_in\"/\"fade_out\": beats, \"loop\": repeat the\nfile to fill \"beats\"}. Clear the span first with clear_items to rebuild.",
+    "description": "Put audio files on a track as items, positioned in beats (beat 0 = bar 1):\nfield recordings, risers, vocal phrases, one-shots. Each item:\n{\"file\": path, \"beat\": start, \"beats\": length (default: the whole file at\nits rate), \"offset_s\": seconds skipped into the file, \"gain_db\": 0,\n\"pitch\": semitones (formant-free shift, tempo kept), \"rate\": playback\nrate (pitch preserved), \"resample\": true makes \"pitch\" play faster or\nslower like a sampler (clean transients, length changes), \"pan\": -1..1,\n\"fade_in\"/\"fade_out\": beats, \"loop\": repeat the file to fill \"beats\"}.\nClear the span first with clear_items to rebuild.",
     "input_schema": {
       "properties": {
         "items": {
