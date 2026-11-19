@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 import logging
 import threading
 from collections.abc import Callable
@@ -42,7 +43,13 @@ _server = MCPServer("reaper-mcp")
 _reaper_lock = threading.Lock()
 
 
-def _serialized(fn: Callable[..., dict]) -> Callable[..., dict]:
+def compact(result: dict) -> str:
+    """A tool result as one line of JSON: the model reads every character, and
+    the SDK's default (indent=2, plus a structured copy) roughly doubles it."""
+    return json.dumps(result, separators=(",", ":"), ensure_ascii=False, default=str)
+
+
+def _serialized(fn: Callable[..., dict]) -> Callable[..., str]:
     """Run the tool under the REAPER lock, reporting failure in the result.
 
     A tool's result is a dict with "success"; an exception becomes
@@ -52,13 +59,13 @@ def _serialized(fn: Callable[..., dict]) -> Callable[..., dict]:
     """
 
     @functools.wraps(fn)
-    def run(*args: Any, **kwargs: Any) -> dict:
+    def run(*args: Any, **kwargs: Any) -> str:
         with _reaper_lock:
             try:
-                return fn(*args, **kwargs)
+                return compact(fn(*args, **kwargs))
             except Exception as e:
                 logger.error("%s failed: %s", fn.__name__, e)
-                return {"success": False, "error": str(e)}
+                return compact({"success": False, "error": str(e)})
 
     return run
 
@@ -82,4 +89,5 @@ for _module in (
 ):
     for _tool in _module.TOOLS:
         # cleandoc: the SDK sends the docstring verbatim, source indentation included.
-        _server.tool(description=inspect.cleandoc(_tool.__doc__ or ""))(_serialized(_tool))
+        _server.tool(description=inspect.cleandoc(_tool.__doc__ or ""), structured_output=False)(
+            _serialized(_tool))

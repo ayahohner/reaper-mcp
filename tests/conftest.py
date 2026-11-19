@@ -41,10 +41,12 @@ async def _call(name: str, arguments: dict) -> dict:
     async with Client(mcp) as client:
         result = await client.call_tool(name, arguments)
     assert not result.is_error, result.content
-    # Tools are annotated `-> dict`, which the SDK serializes as one JSON text
-    # block rather than structured content.
+    # Every tool's dict comes back as one line of compact JSON text, with no
+    # structured copy (server.compact).
     [block] = result.content
     assert isinstance(block, TextContent), block
+    assert "\n" not in block.text, block.text
+    assert result.structured_content is None
     return json.loads(block.text)
 
 
