@@ -158,51 +158,81 @@ def track_stack(stems: dict[str, np.ndarray], rate: int, path: Path, *, title: s
 
 
 def track_spectra(stems: dict[str, np.ndarray], rate: int, path: Path, *, title: str) -> Path:
-    """Where each track sits: its average spectrum (1/6-octave smoothed, one
+    """Where each track sits: its average spectrum (1/24-octave smoothed, one
     colour per track, translucent fills so overlaps mix colours) and, as a thin
-    line, its loud moments (95th percentile per band over 100 ms frames), the
-    still picture of an analyzer's slow peak fall-off."""
+    dashed line, its loud moments (95th percentile over 100 ms frames), the still
+    picture of an analyzer's slow peak fall-off. A strip underneath shows which
+    track is loudest in each band, faded where the next one is within 6 dB:
+    the bands to carve with EQ."""
     plt = _pyplot()
     from scipy.signal import stft
 
-    edges = 20.0 * 2 ** (np.arange(0, np.log2(20000 / 20) * 6 + 1) / 6)
-    centres = np.sqrt(edges[:-1] * edges[1:])
-    fig, ax = plt.subplots(figsize=(12, 5), dpi=110)
-    colours = plt.get_cmap("tab10")
+    per_octave = 24
+    centres = 20.0 * 2 ** (np.arange(0, np.log2(min(20000, rate / 2) / 20) * per_octave + 1) / per_octave)
+    fig, (ax, strip) = plt.subplots(2, 1, figsize=(14, 6.4), dpi=150, sharex=True,
+                                    gridspec_kw={"height_ratios": [9, 1], "hspace": 0.04})
+    colours = plt.get_cmap("tab10" if len(stems) <= 10 else "tab20")
+    means, names = [], []
     for i, (name, data) in enumerate(stems.items()):
         mono = data.mean(axis=1)
-        freqs, _, z = stft(mono, fs=rate, nperseg=8192, noverlap=8192 - int(0.1 * rate))
+        freqs, _, z = stft(mono, fs=rate, nperseg=16384, noverlap=16384 - int(0.1 * rate))
         power = np.abs(z) ** 2
-        # a band narrower than one FFT bin (low down) takes the nearest bin
-        bands = np.array([power[inside].sum(axis=0) if (inside := (freqs >= lo) & (freqs < hi)).any()
-                          else power[np.argmin(np.abs(freqs - centre))]
-                          for lo, hi, centre in zip(edges[:-1], edges[1:], centres, strict=True)])
-        loud_frames = bands.sum(axis=0) > 1e-9
+        loud_frames = power.sum(axis=0) > 1e-9
         if not loud_frames.any():
             continue
-        bands = bands[:, loud_frames]
-        mean_db = 10 * np.log10(bands.mean(axis=1) + 1e-12)
-        peak_db = 10 * np.log10(np.percentile(bands, 95, axis=1) + 1e-12)
-        colour = colours(i % 10)
-        ax.fill_between(centres, -200, mean_db, color=colour, alpha=0.28, lw=0)
-        ax.plot(centres, mean_db, color=colour, lw=1.2, label=name)
-        ax.plot(centres, peak_db, color=colour, lw=0.6, ls="--", alpha=0.8)
+        power = power[:, loud_frames]
+        mean_db = 10 * np.log10(_log_smooth(freqs, power.mean(axis=1), centres, per_octave=per_octave) + 1e-12)
+        peak_db = 10 * np.log10(_log_smooth(freqs, np.percentile(power, 95, axis=1), centres,
+                                            per_octave=per_octave) + 1e-12)
+        colour = colours(i % colours.N)
+        ax.fill_between(centres, -200, mean_db, color=colour, alpha=0.22, lw=0)
+        ax.plot(centres, mean_db, color=colour, lw=1.1, label=name)
+        ax.plot(centres, peak_db, color=colour, lw=0.5, ls="--", alpha=0.8)
+        means.append(mean_db)
+        names.append(colour)
     top = ax.get_ylim()[1]
     ax.set_ylim(top - 70, top + 3)
+    if means:
+        stack = np.array(means)
+        order = np.argsort(stack, axis=0)
+        loudest = order[-1]
+        margin = (stack[loudest, np.arange(len(centres))]
+                  - (stack[order[-2], np.arange(len(centres))] if len(means) > 1 else -np.inf))
+        rgba = np.array([names[k] for k in loudest])
+        rgba[:, 3] = np.clip(margin / 6, 0.15, 1.0)
+        half = 2 ** (0.5 / per_octave)
+        strip.bar(centres / half, 1, width=centres * (half - 1 / half), align="edge", color=rgba, lw=0)
+        strip.set_ylim(0, 1)
+    strip.set_yticks([])
+    strip.set_ylabel("loudest", fontsize=7, rotation=0, ha="right", va="center")
     ax.set_xscale("log")
     ax.set_xlim(25, min(20000, rate / 2))
     ticks = [f for f in FREQ_TICKS if 25 <= f <= rate / 2]
-    ax.set_xticks(ticks, [_freq_label(f) for f in ticks])
-    ax.set_xlabel("Hz", fontsize=7)
-    ax.set_ylabel("dB per 1/6 octave (shared scale)", fontsize=7)
-    ax.tick_params(labelsize=7)
-    ax.grid(lw=0.3, alpha=0.4)
-    ax.legend(fontsize=7, ncols=min(5, len(stems)), loc="upper right")
+    strip.set_xticks(ticks, [_freq_label(f) for f in ticks])
+    strip.set_xlabel("Hz", fontsize=7)
+    ax.set_ylabel("dB per 1/24 octave (shared scale)", fontsize=7)
+    for axis in (ax, strip):
+        axis.tick_params(labelsize=7)
+        axis.grid(lw=0.3, alpha=0.4, which="both", axis="x")
+    ax.grid(lw=0.3, alpha=0.4, axis="y")
+    ax.legend(fontsize=7, ncols=min(6, len(stems)), loc="upper right")
     ax.set_title(f"{title}  (solid: average while playing, dashed: loud moments)", fontsize=8, loc="left")
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
     return path
+
+
+def _log_smooth(freqs: np.ndarray, power: np.ndarray, centres: np.ndarray, *, per_octave: int) -> np.ndarray:
+    """Power averaged over a band 1/per_octave wide around each centre; bands
+    narrower than one FFT bin (low down) interpolate between bins instead."""
+    half = 2 ** (0.5 / per_octave)
+    cumulative = np.concatenate([[0.0], np.cumsum(power)])
+    lo = np.searchsorted(freqs, centres / half)
+    hi = np.searchsorted(freqs, centres * half)
+    counts = hi - lo
+    averaged = (cumulative[hi] - cumulative[lo]) / np.maximum(counts, 1)
+    return np.where(counts > 0, averaged, np.interp(centres, freqs, power))
 
 
 def _constant_q(mono: np.ndarray, rate: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

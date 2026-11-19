@@ -220,7 +220,7 @@ def analyze_tracks(
     picture: "stack" writes a PNG with a row per track (spectrogram on one shared
     colour scale, level line, bar lines): the arrangement at once. "spectra"
     overlays each track's average spectrum in its own colour: where each sits,
-    and where they overlap, for EQ.
+    and where they overlap (1/24 octave), with a strip of the loudest track per band, for EQ.
     """
     if len(tracks) < 2:
         return {"success": False, "error": "list at least two tracks to compare"}
