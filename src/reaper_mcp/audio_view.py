@@ -88,10 +88,24 @@ def render_span(tracks: list[int] | None, start: float | None, end: float | None
     return target, start, end
 
 
+AUDIO_SUFFIXES = (".wav", ".aif", ".aiff", ".flac", ".caf", ".mp3", ".ogg")
+
+
 def _read(path: Path) -> tuple[np.ndarray, int]:
+    """Any audio file as (frames, 2) float. Formats libsndfile cannot decode
+    (the AAC inside Apple Loops .caf files) go through macOS afconvert."""
     import soundfile as sf
 
-    data, rate = sf.read(str(path), always_2d=True)
+    try:
+        data, rate = sf.read(str(path), always_2d=True)
+    except sf.LibsndfileError:
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as tmp:
+            wav = Path(tmp) / "decoded.wav"
+            subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEF32", str(path), str(wav)],
+                           check=True, capture_output=True)
+            data, rate = sf.read(str(wav), always_2d=True)
     return m.stereo(data), int(rate)
 
 
@@ -231,4 +245,41 @@ def analyze_tracks(
             "bands_hz": bands_hz, "tracks": per_track}
 
 
-TOOLS = (analyze_audio, analyze_tracks)
+SAMPLE_COLUMNS = ("file", "seconds", "peak_db", "attack_ms", "tail_s", "rms_300ms_db",
+                  "centroid_hz", "pitch", "width_db")
+
+
+def audition_samples(*, folder: str, match: str | None = None, limit: int = 40) -> dict:
+    """
+    Measure every audio file in a folder (not its subfolders) to pick
+    one-shots without listening: one row per file, columns named once.
+    match: keep files whose name contains this, case-insensitively ("kick").
+    tail_s: seconds from the peak until 30 dB under it. pitch: the strongest
+    peak between 30 and 500 Hz in the first 300 ms after the hit, as the
+    nearest note and cents ("F1+12"); tune a kick or 808 by it.
+    centroid_hz: brightness. width_db: side vs mid, -120 for mono.
+    """
+    root = Path(folder).expanduser()
+    if not root.is_dir():
+        return {"success": False, "error": f"not a folder: {folder}"}
+    files = sorted(p for p in root.iterdir()
+                   if p.suffix.lower() in AUDIO_SUFFIXES
+                   and (match is None or match.lower() in p.name.lower()))
+    rows = []
+    for path in files[:limit]:
+        try:
+            data, rate = _read(path)
+        except Exception as e:  # one unreadable file should not hide the rest
+            rows.append([path.name, f"unreadable: {e}"])
+            continue
+        s = m.sample_summary(data, rate)
+        rows.append([path.name, s["seconds"], s["peak_db"], s.get("attack_ms"), s.get("tail_s"),
+                     s.get("rms_300ms_db"), s.get("centroid_hz"),
+                     m.pitch_note(s.get("pitch_hz", 0.0)), s.get("width_db")])
+    result = {"success": True, "folder": str(root), "columns": list(SAMPLE_COLUMNS), "rows": rows}
+    if len(files) > limit:
+        result["not_shown"] = len(files) - limit
+    return result
+
+
+TOOLS = (analyze_audio, analyze_tracks, audition_samples)

@@ -283,3 +283,56 @@ def _main_range(by_band: np.ndarray, centres) -> tuple[int, int]:
     hi = int(np.searchsorted(cumulative, 0.9))
     hi = min(hi, len(centres) - 1)
     return int(round(centres[lo] / 2 ** (1 / 6))), int(round(centres[hi] * 2 ** (1 / 6)))
+
+
+# One-shot samples
+
+
+def sample_summary(data: np.ndarray, rate: int) -> dict:
+    """What a drum or one-shot sample is like, for picking one from many.
+
+    tail_s: time from the peak until the level stays 30 dB under it (50 ms
+    RMS windows). attack_ms: time to reach the peak. pitch_hz: the strongest
+    spectral peak between 30 and 500 Hz in the first 300 ms after the peak;
+    the body of a kick, the tone of a snare.
+    """
+    mono = data.mean(axis=1)
+    if not np.any(mono):
+        return {"seconds": round(len(mono) / rate, 2), "peak_db": FLOOR_DB}
+    peak_at = int(np.argmax(np.abs(mono)))
+    peak = float(np.abs(mono[peak_at]))
+    step = max(1, int(0.05 * rate))
+    after = mono[peak_at:]
+    n = max(1, len(after) // step)
+    rms = np.sqrt(np.mean(after[: n * step].reshape(n, step) ** 2, axis=1)) if len(after) >= step else np.array([peak])
+    loud = np.nonzero(rms > peak * 10 ** (-30 / 20))[0]
+    tail = (int(loud[-1]) + 1) * step / rate if len(loud) else 0.0
+    body = mono[peak_at:peak_at + int(0.3 * rate)]
+    pitch = 0.0
+    if len(body) >= 1024:
+        spectrum = np.abs(np.fft.rfft(body * np.hanning(len(body)), n=max(len(body), 1 << 16)))
+        freqs = np.fft.rfftfreq(max(len(body), 1 << 16), 1 / rate)
+        band = (freqs >= 30) & (freqs <= 500)
+        pitch = float(freqs[band][np.argmax(spectrum[band])])
+    spectrum = spectrum_summary(data, rate)
+    return {
+        "seconds": round(len(mono) / rate, 2),
+        "peak_db": round(amp_db(peak), 1),
+        "attack_ms": round(1000 * peak_at / rate, 1),
+        "tail_s": round(tail, 2),
+        "rms_300ms_db": round(db(float(np.mean(body ** 2))), 1),
+        "centroid_hz": spectrum["centroid_hz"],
+        "pitch_hz": round(pitch, 1),
+        "width_db": _width_db(data[:, 0], data[:, 1]),
+    }
+
+
+def pitch_note(hz: float) -> str:
+    """The nearest note to a frequency and the offset in cents, e.g. 'F1+12'."""
+    if hz <= 0:
+        return ""
+    midi = 69 + 12 * np.log2(hz / 440)
+    nearest = int(round(midi))
+    names = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+    cents = int(round(100 * (midi - nearest)))
+    return f"{names[nearest % 12]}{nearest // 12 - 1}{cents:+d}"

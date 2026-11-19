@@ -390,6 +390,39 @@
       "type": "object"
     }
   },
+  "audition_samples": {
+    "description": "Measure every audio file in a folder (not its subfolders) to pick\none-shots without listening: one row per file, columns named once.\nmatch: keep files whose name contains this, case-insensitively (\"kick\").\ntail_s: seconds from the peak until 30 dB under it. pitch: the strongest\npeak between 30 and 500 Hz in the first 300 ms after the hit, as the\nnearest note and cents (\"F1+12\"); tune a kick or 808 by it.\ncentroid_hz: brightness. width_db: side vs mid, -120 for mono.",
+    "input_schema": {
+      "properties": {
+        "folder": {
+          "title": "Folder",
+          "type": "string"
+        },
+        "limit": {
+          "default": 40,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match"
+        }
+      },
+      "required": [
+        "folder"
+      ],
+      "title": "audition_samplesArguments",
+      "type": "object"
+    }
+  },
   "bypass_fx": {
     "description": "Enable or bypass (disable) an FX plugin on a track.",
     "input_schema": {

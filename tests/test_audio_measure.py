@@ -129,3 +129,20 @@ def test_masking_names_the_louder_track_and_its_range():
 def test_masking_of_a_silent_track():
     result = m.masking({"a": both(np.zeros(RATE)), "b": both(tone(100))}, RATE)
     assert result["a"] == {"covered_pct": 0.0, "worst": None}
+
+
+def test_sample_summary_of_a_decaying_kick():
+    t = np.arange(int(RATE * 1.0)) / RATE
+    kick = np.sin(2 * np.pi * 55 * t) * np.exp(-t / 0.1)  # 55 Hz, -8.7 dB per 100 ms
+    summary = m.sample_summary(both(kick), RATE)
+    assert summary["pitch_hz"] == pytest.approx(55, abs=2)
+    assert summary["attack_ms"] < 5
+    assert 0.25 < summary["tail_s"] < 0.45  # -30 dB after about 0.35 s
+    assert summary["width_db"] == m.FLOOR_DB
+
+
+def test_pitch_note():
+    assert m.pitch_note(440) == "A4+0"
+    assert m.pitch_note(43.65) == "F1+0"
+    assert m.pitch_note(45) == "F#1-47"
+    assert m.pitch_note(0) == ""
