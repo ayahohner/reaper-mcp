@@ -105,7 +105,7 @@ def spectrogram(data: np.ndarray, rate: int, path: Path, *, title: str,
     bar.set_label(f"dB (0 = loudest cell, {top:.0f} dB re 1)", fontsize=6)
     bar.ax.tick_params(labelsize=6)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path)
+    fig.savefig(path, bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
     return path
 
@@ -174,6 +174,6 @@ def piano_roll(parts: dict[str, list[tuple[float, float, int, int]]], path: Path
     axes[-1, 0].set_xticks(bar_ticks, [str(int(b // beats_per_bar) + 1) for b in bar_ticks])
     axes[-1, 0].set_xlabel("bar", fontsize=7)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, bbox_inches="tight")
+    fig.savefig(path, bbox_inches="tight", pad_inches=0.04)
     plt.close(fig)
     return path
