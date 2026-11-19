@@ -14,6 +14,7 @@ from reaper_mcp import (
     audio_view,
     compose_tools,
     fx_tools,
+    loop_library,
     mastering_tools,
     midi_tools,
     mixing_tools,
@@ -78,6 +79,7 @@ for _module in (
     track_tools,
     midi_tools,
     fx_tools,
+    loop_library,
     audio_tools,
     mixing_tools,
     render_tools,
@@ -88,6 +90,7 @@ for _module in (
     audio_view,
     compose_tools,
     sampler_tools,
+    loop_library,
 ):
     for _tool in _module.TOOLS:
         # cleandoc: the SDK sends the docstring verbatim, source indentation included.

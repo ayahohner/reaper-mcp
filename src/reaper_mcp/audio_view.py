@@ -313,24 +313,27 @@ SAMPLE_COLUMNS = ("file", "seconds", "peak_db", "attack_ms", "tail_s", "rms_300m
                   "centroid_hz", "pitch", "width_db")
 
 
-def audition_samples(*, folder: str, match: str | None = None, limit: int = 40) -> dict:
+def audition_samples(*, folder: str | None = None, files: list[str] | None = None,
+                     match: str | None = None, limit: int = 40) -> dict:
     """
-    Measure every audio file in a folder (not its subfolders) to pick
-    one-shots without listening: one row per file, columns named once.
+    Measure every audio file in a folder (not its subfolders), or the listed
+    files (paths from find_loops), to pick sounds without listening: one row
+    per file, columns named once.
     match: keep files whose name contains this, case-insensitively ("kick").
     tail_s: seconds from the peak until 30 dB under it. pitch: the strongest
     peak between 30 and 500 Hz in the first 300 ms after the hit, as the
     nearest note and cents ("F1+12"); tune a kick or 808 by it.
     centroid_hz: brightness. width_db: side vs mid, -120 for mono.
     """
-    root = Path(folder).expanduser()
-    if not root.is_dir():
-        return {"success": False, "error": f"not a folder: {folder}"}
-    files = sorted(p for p in root.iterdir()
-                   if p.suffix.lower() in AUDIO_SUFFIXES
-                   and (match is None or match.lower() in p.name.lower()))
+    if files:
+        paths = [Path(f).expanduser() for f in files]
+    elif folder and Path(folder).expanduser().is_dir():
+        paths = sorted(p for p in Path(folder).expanduser().iterdir() if p.suffix.lower() in AUDIO_SUFFIXES)
+    else:
+        return {"success": False, "error": f"give files or a folder (not a folder: {folder})"}
+    paths = [p for p in paths if match is None or match.lower() in p.name.lower()]
     rows = []
-    for path in files[:limit]:
+    for path in paths[:limit]:
         try:
             data, rate = _read(path)
         except Exception as e:  # one unreadable file should not hide the rest
@@ -340,9 +343,9 @@ def audition_samples(*, folder: str, match: str | None = None, limit: int = 40) 
         rows.append([path.name, s["seconds"], s["peak_db"], s.get("attack_ms"), s.get("tail_s"),
                      s.get("rms_300ms_db"), s.get("centroid_hz"),
                      m.pitch_note(s.get("pitch_hz", 0.0)), s.get("width_db")])
-    result = {"success": True, "folder": str(root), "columns": list(SAMPLE_COLUMNS), "rows": rows}
-    if len(files) > limit:
-        result["not_shown"] = len(files) - limit
+    result = {"success": True, "columns": list(SAMPLE_COLUMNS), "rows": rows}
+    if len(paths) > limit:
+        result["not_shown"] = len(paths) - limit
     return result
 
 

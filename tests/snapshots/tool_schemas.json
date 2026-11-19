@@ -415,12 +415,35 @@
     }
   },
   "audition_samples": {
-    "description": "Measure every audio file in a folder (not its subfolders) to pick\none-shots without listening: one row per file, columns named once.\nmatch: keep files whose name contains this, case-insensitively (\"kick\").\ntail_s: seconds from the peak until 30 dB under it. pitch: the strongest\npeak between 30 and 500 Hz in the first 300 ms after the hit, as the\nnearest note and cents (\"F1+12\"); tune a kick or 808 by it.\ncentroid_hz: brightness. width_db: side vs mid, -120 for mono.",
+    "description": "Measure every audio file in a folder (not its subfolders), or the listed\nfiles (paths from find_loops), to pick sounds without listening: one row\nper file, columns named once.\nmatch: keep files whose name contains this, case-insensitively (\"kick\").\ntail_s: seconds from the peak until 30 dB under it. pitch: the strongest\npeak between 30 and 500 Hz in the first 300 ms after the hit, as the\nnearest note and cents (\"F1+12\"); tune a kick or 808 by it.\ncentroid_hz: brightness. width_db: side vs mid, -120 for mono.",
     "input_schema": {
       "properties": {
+        "files": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Files"
+        },
         "folder": {
-          "title": "Folder",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Folder"
         },
         "limit": {
           "default": 40,
@@ -440,9 +463,6 @@
           "title": "Match"
         }
       },
-      "required": [
-        "folder"
-      ],
       "title": "audition_samplesArguments",
       "type": "object"
     }
@@ -827,6 +847,91 @@
         "item_index"
       ],
       "title": "edit_audio_itemArguments",
+      "type": "object"
+    }
+  },
+  "find_loops": {
+    "description": "Search the installed Apple Loops (Logic's loop index) for samples to use.\ntext: words that must all appear in the file name, instrument type/subtype,\ngenre, descriptors or sound pack (\"crickets\", \"choir dark\", \"foley\",\n\"vocals female relaxed\"). key: \"F minor\" keeps loops in that key or its\nrelative major (Ab); unpitched also keeps loops without a key (drums,\nnoise, foley). tempo and seconds: [min, max]. One-shot sound effects\n(nature, foley, animals) have no tempo or beats. exclude: words that must not\nappear. One row per loop, columns named once; key is like \"Ab\" or \"Fm\".\nLogic plays loops at the project tempo and key; here they play as recorded.",
+    "input_schema": {
+      "properties": {
+        "exclude": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exclude"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "limit": {
+          "default": 25,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seconds"
+        },
+        "tempo": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tempo"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "unpitched": {
+          "default": true,
+          "title": "Unpitched",
+          "type": "boolean"
+        }
+      },
+      "title": "find_loopsArguments",
       "type": "object"
     }
   },
