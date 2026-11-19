@@ -661,6 +661,64 @@
       "type": "object"
     }
   },
+  "duck": {
+    "description": "Sidechain-style ducking without routing: read the note starts on the trigger\ntrack (a kick) and write volume automation on each of tracks that dips to\ndepth_db at every hit and recovers over release_beats. Limit to\n[start_beat, end_beat) if given. Replaces existing volume points in that span.",
+    "input_schema": {
+      "properties": {
+        "depth_db": {
+          "default": -9.0,
+          "title": "Depth Db",
+          "type": "number"
+        },
+        "end_beat": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Beat"
+        },
+        "release_beats": {
+          "default": 0.5,
+          "title": "Release Beats",
+          "type": "number"
+        },
+        "start_beat": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Beat"
+        },
+        "tracks": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tracks",
+          "type": "array"
+        },
+        "trigger": {
+          "title": "Trigger",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tracks",
+        "trigger"
+      ],
+      "title": "duckArguments",
+      "type": "object"
+    }
+  },
   "edit_audio_item": {
     "description": "Trim an audio item and/or add fades. All values in seconds.\nstart_trim: seconds to remove from the beginning.\nend_trim: seconds to remove from the end.\nfade_in/fade_out: fade length in seconds.",
     "input_schema": {

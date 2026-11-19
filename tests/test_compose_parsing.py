@@ -74,3 +74,23 @@ def test_resolve_param_prefers_whole_then_bare_then_prefix():
         _resolve_param(names, 0, "index")  # inside two names
     with pytest.raises(ValueError, match="no parameter"):
         _resolve_param(names, 0, "resonance")
+
+
+def test_duck_points_dip_and_recover():
+    from reaper_mcp.compose_tools import duck_points
+
+    points = duck_points([0.0, 2.0], depth_db=-10, release_beats=0.5)
+    values = [(beat, db) for beat, db, _ in points]
+    assert values == [(0.0, -10), (0.5, 0.0), (1.99, 0.0), (2.0, -10), (2.5, 0.0)]
+
+
+def test_duck_points_cut_short_by_the_next_hit():
+    from reaper_mcp.compose_tools import duck_points
+
+    points = duck_points([0.0, 0.25], depth_db=-10, release_beats=0.5)
+    beats = [beat for beat, _, _ in points]
+    assert beats == sorted(beats)
+    cut = points[1]
+    assert cut[0] == pytest.approx(0.23)
+    assert cut[1] == pytest.approx(-10 * (1 - 0.23 / 0.5))
+    assert points[2][:2] == (0.25, -10)

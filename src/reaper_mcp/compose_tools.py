@@ -247,16 +247,6 @@ def write_envelope(
     SHAPE: linear (default), square, slow, fast_start, fast_end, bezier.
     clear: first delete existing points between the first and last beat written.
     """
-    track = get_project().tracks[track_index]
-    envelope = _envelope(track, target, fx_index=fx_index, param=param)
-    if is_null(envelope):
-        if target in ("volume", "pan"):
-            # Show the track's envelope so it exists, then fetch it again.
-            RPR.SetOnlyTrackSelected(track.id)
-            RPR.Main_OnCommand(40406 if target == "volume" else 40407, 0)
-            envelope = _envelope(track, target, fx_index=fx_index, param=param)
-        if is_null(envelope):
-            return {"success": False, "error": f"no {target} envelope on track {track_index}"}
     parsed = []
     for token in points.split():
         fields = token.split(":")
@@ -268,19 +258,83 @@ def write_envelope(
         parsed.append((float(fields[0]), float(fields[1]), ENVELOPE_SHAPES[shape]))
     if not parsed:
         return {"success": False, "error": "no points"}
-    times = [RPR.TimeMap2_QNToTime(0, beat) for beat, _, _ in parsed]
+    track = get_project().tracks[track_index]
+    _write_points(track, target, parsed, clear=clear, fx_index=fx_index, param=param)
+    return {"success": True, "track_index": track_index, "target": target,
+            "points": len(parsed), "beats": [parsed[0][0], parsed[-1][0]]}
+
+
+def _write_points(track, target: str, points: list[tuple[float, float, int]], *, clear: bool,
+                  fx_index: int | None = None, param: str | int | None = None) -> None:
+    """Write (beat, value, shape code) points; volume values in dB, pan -1..1."""
+    envelope = _envelope(track, target, fx_index=fx_index, param=param)
+    if is_null(envelope) and target in ("volume", "pan"):
+        # Show the track's envelope so it exists, then fetch it again.
+        RPR.SetOnlyTrackSelected(track.id)
+        RPR.Main_OnCommand(40406 if target == "volume" else 40407, 0)
+        envelope = _envelope(track, target, fx_index=fx_index, param=param)
+    if is_null(envelope):
+        raise ValueError(f"no {target} envelope on track {track.index}")
+    times = [RPR.TimeMap2_QNToTime(0, beat) for beat, _, _ in points]
     if clear:
         RPR.DeleteEnvelopePointRange(envelope, min(times) - 1e-6, max(times) + 1e-6)
     mode = RPR.GetEnvelopeScalingMode(envelope)
-    for time, (_, value, shape) in zip(times, parsed, strict=True):
+    for time, (_, value, shape) in zip(times, points, strict=True):
         if target == "volume":
             value = RPR.ScaleToEnvelopeMode(mode, 10 ** (value / 20))
         elif target == "pan":
             value = -value  # REAPER's pan envelope runs opposite to track pan
         RPR.InsertEnvelopePoint(envelope, time, value, shape, 0.0, False, True)
     RPR.Envelope_SortPoints(envelope)
-    return {"success": True, "track_index": track_index, "target": target,
-            "points": len(parsed), "beats": [parsed[0][0], parsed[-1][0]]}
+
+
+def duck_points(hits: list[float], *, depth_db: float, release_beats: float,
+                gap: float = 0.01) -> list[tuple[float, float, int]]:
+    """Volume points (beat, dB, shape) that dip to depth_db at each hit and come
+    back to 0 dB over release_beats, cut short by the next hit."""
+    points: list[tuple[float, float, int]] = []
+    hits = sorted(set(hits))
+    for i, hit in enumerate(hits):
+        following = hits[i + 1] if i + 1 < len(hits) else None
+        if hit >= gap and (not points or points[-1][0] < hit - gap):
+            points.append((hit - gap, 0.0, ENVELOPE_SHAPES["linear"]))
+        points.append((hit, depth_db, ENVELOPE_SHAPES["slow"]))
+        back = hit + release_beats
+        if following is not None and back > following - 2 * gap:
+            back = following - 2 * gap
+            if back <= hit:
+                continue
+            points.append((back, depth_db * (1 - (back - hit) / release_beats), ENVELOPE_SHAPES["linear"]))
+        else:
+            points.append((back, 0.0, ENVELOPE_SHAPES["linear"]))
+    return points
+
+
+def duck(
+    *,
+    tracks: list[int],
+    trigger: int,
+    depth_db: float = -9.0,
+    release_beats: float = 0.5,
+    start_beat: float | None = None,
+    end_beat: float | None = None,
+) -> dict:
+    """
+    Sidechain-style ducking without routing: read the note starts on the trigger
+    track (a kick) and write volume automation on each of tracks that dips to
+    depth_db at every hit and recovers over release_beats. Limit to
+    [start_beat, end_beat) if given. Replaces existing volume points in that span.
+    """
+    project = get_project()
+    hits = [beat for beat, _, _, _ in _notes_of(project.tracks[trigger])
+            if (start_beat is None or beat >= start_beat) and (end_beat is None or beat < end_beat)]
+    if not hits:
+        return {"success": False, "error": f"no notes on track {trigger} in that span"}
+    points = duck_points(hits, depth_db=depth_db, release_beats=release_beats)
+    for index in tracks:
+        _write_points(project.tracks[index], "volume", points, clear=True)
+    return {"success": True, "tracks": tracks, "hits": len(set(hits)),
+            "beats": [min(hits), max(hits)], "points_per_track": len(points)}
 
 
 # Note view
@@ -398,4 +452,4 @@ def note_view(
     return result
 
 
-TOOLS = (write_notes, set_fx, write_envelope, note_view)
+TOOLS = (write_notes, set_fx, write_envelope, duck, note_view)
